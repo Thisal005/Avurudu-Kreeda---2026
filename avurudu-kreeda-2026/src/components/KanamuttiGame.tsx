@@ -231,7 +231,7 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
         });
       }
 
-      handlePotClick(pot: Phaser.GameObjects.Arc, index: number) {
+      handlePotClick(pot: Phaser.GameObjects.Image, index: number) {
         this.isGameOver = true;
         const isWin = index === this.winningPotIndex;
         const isBonus = index === this.bonusPotIndex;
@@ -285,7 +285,7 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
         });
       }
 
-      playWinEffect(pot: Phaser.GameObjects.Arc) {
+      playWinEffect(pot: Phaser.GameObjects.Image) {
         const x = pot.x;
         const y = pot.y;
 
@@ -366,7 +366,7 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
         this.time.delayedCall(2500, () => onGameOver('win'));
       }
 
-      playBonusEffect(pot: Phaser.GameObjects.Arc) {
+      playBonusEffect(pot: Phaser.GameObjects.Image) {
         const x = pot.x;
         const y = pot.y;
         pot.setVisible(false);
@@ -412,7 +412,7 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
         this.time.delayedCall(2500, () => onGameOver('bonus'));
       }
 
-      playMissEffect(pot: Phaser.GameObjects.Arc) {
+      playMissEffect(pot: Phaser.GameObjects.Image) {
         // Shake the pot heavily
         this.tweens.add({
           targets: pot,
