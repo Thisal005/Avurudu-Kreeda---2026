@@ -93,27 +93,27 @@ export default function KanamuttiBindeemaPage() {
         {!gameOver ? (
           <>
             <KanamuttiGame key="playing" onGameOver={handleGameOver} />
-            <div className="absolute bottom-6 right-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 pointer-events-none z-10 text-white/50 text-sm font-bold uppercase tracking-widest">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 pointer-events-none z-10 text-white/50 text-sm font-bold uppercase tracking-widest whitespace-nowrap">
               Attempt {attempts}
             </div>
           </>
         ) : (
-          <div className="w-full h-full bg-black/80 flex items-center justify-center p-6 z-30 absolute top-0 left-0">
+          <div className="w-full h-full bg-black/80 flex items-center justify-center p-3 sm:p-6 z-30 absolute top-0 left-0">
             <div className={`bg-gradient-to-br ${resultType === 'win' ? 'from-green-900 to-green-600' : resultType === 'bonus' ? 'from-amber-900 to-amber-600' : 'from-gray-900 to-gray-700'} p-1 rounded-3xl shadow-2xl max-w-sm w-full`}>
-              <div className="bg-black/40 backdrop-blur-xl rounded-[22px] p-8 text-center flex flex-col items-center border border-white/10">
-                <div className="text-6xl mb-4">{resultEmoji}</div>
+              <div className="bg-black/40 backdrop-blur-xl rounded-[22px] p-5 sm:p-8 text-center flex flex-col items-center border border-white/10">
+                <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">{resultEmoji}</div>
                 
-                <h2 className="text-3xl font-black text-white mb-2 drop-shadow-md">
+                <h2 className="text-2xl sm:text-3xl font-black text-white mb-2 drop-shadow-md">
                   {resultTitle}
                 </h2>
                 
-                <p className="text-white/80 font-medium mb-6">
+                <p className="text-sm sm:text-base text-white/80 font-medium mb-4 sm:mb-6">
                   {resultMsg}
                 </p>
 
-                <div className="bg-black/50 w-full rounded-2xl py-4 mb-8 border border-white/5">
-                  <p className="text-sm font-semibold text-white/60 uppercase tracking-widest mb-1">Points Earned</p>
-                  <p className={`text-5xl font-black ${isPositive ? 'text-avurudu-yellow' : 'text-gray-300'}`}>
+                <div className="bg-black/50 w-full rounded-2xl py-3 sm:py-4 mb-4 sm:mb-8 border border-white/5">
+                  <p className="text-xs sm:text-sm font-semibold text-white/60 uppercase tracking-widest mb-1">Points Earned</p>
+                  <p className={`text-4xl sm:text-5xl font-black ${isPositive ? 'text-avurudu-yellow' : 'text-gray-300'}`}>
                     +{roundScore}
                   </p>
                 </div>
@@ -121,7 +121,7 @@ export default function KanamuttiBindeemaPage() {
                 <div className="w-full space-y-3">
                   <button 
                     onClick={handlePlayAgain}
-                    className="w-full bg-avurudu-yellow text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-400 hover:scale-105 transition-all shadow-lg"
+                    className="w-full bg-avurudu-yellow text-black font-extrabold text-base sm:text-lg py-3 sm:py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-400 hover:scale-105 transition-all shadow-lg"
                   >
                     <RotateCcw className="w-5 h-5" />
                     Play Next Round
@@ -129,7 +129,7 @@ export default function KanamuttiBindeemaPage() {
                   
                   <Link 
                     href="/games"
-                    className="w-full bg-white/10 text-white font-bold text-lg py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-white/20 transition-all border border-white/10"
+                    className="w-full bg-white/10 text-white font-bold text-base sm:text-lg py-3 sm:py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-white/20 transition-all border border-white/10"
                   >
                     <Home className="w-5 h-5" />
                     Back to Hub

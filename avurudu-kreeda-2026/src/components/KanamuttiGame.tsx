@@ -65,125 +65,156 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
 
       drawPots() {
         const totalPots = 7;
-        const potSize = Math.min(110, (this.gameWidth - 60) / (totalPots * 1.2));
-        const spacing = Math.min(130, (this.gameWidth - 40) / totalPots);
-        const startX = this.gameWidth / 2 - (spacing * (totalPots - 1)) / 2;
-        
-        for (let i = 0; i < totalPots; i++) {
-          const x = startX + (i * spacing);
-          const y = this.gameHeight * 0.38;
+        const isMobile = this.gameWidth <= 500;
 
-          const pot = this.add.image(x, y, 'muttiya');
-          // Scale to consistent size
-          const scale = potSize / Math.max(pot.width, pot.height);
-          pot.setScale(scale);
-          pot.setInteractive({ useHandCursor: true });
-          pot.setData("index", i);
-          pot.setData("originalX", x);
-          
-          // Hover effect
-          pot.on('pointerover', () => pot.setScale(scale * 1.15));
-          pot.on('pointerout', () => pot.setScale(scale));
-          
-          // Click
-          pot.on('pointerdown', () => {
-            if (this.isSpinning || this.isGameOver) return;
-            this.handlePotClick(pot, i);
+        if (isMobile) {
+          // Two-row layout on mobile: row1 = 4 pots, row2 = 3 pots
+          const row1Count = 4;
+          const row2Count = 3;
+          const maxPotArea = (this.gameWidth - 20) / row1Count;
+          const potSize = Math.min(72, maxPotArea * 0.72);
+          const spacing1 = (this.gameWidth - 20) / row1Count;
+          const spacing2 = (this.gameWidth - 20) / row2Count;
+
+          const row1Y = this.gameHeight * 0.30;
+          const row2Y = this.gameHeight * 0.58;
+
+          const row1StartX = this.gameWidth / 2 - (spacing1 * (row1Count - 1)) / 2;
+          const row2StartX = this.gameWidth / 2 - (spacing2 * (row2Count - 1)) / 2;
+
+          // Rope for row 1
+          const string1Y = row1Y - potSize * 0.55;
+          this.add.rectangle(this.gameWidth / 2, string1Y, this.gameWidth * 0.9, 5, 0x5c4033).setDepth(-1);
+          // Rope for row 2
+          const string2Y = row2Y - potSize * 0.55;
+          this.add.rectangle(this.gameWidth / 2, string2Y, this.gameWidth * 0.75, 5, 0x5c4033).setDepth(-1);
+
+          const addPot = (i: number, x: number, y: number, stringY: number) => {
+            const tempPot = this.add.image(0, 0, 'muttiya');
+            const scale = potSize / Math.max(tempPot.width, tempPot.height);
+            tempPot.destroy();
+
+            const pot = this.add.image(x, y, 'muttiya');
+            pot.setScale(scale);
+            pot.setInteractive({ useHandCursor: true });
+            pot.setData("index", i);
+            pot.setData("originalX", x);
+
+            pot.on('pointerover', () => pot.setScale(scale * 1.12));
+            pot.on('pointerout', () => pot.setScale(scale));
+            pot.on('pointerdown', () => {
+              if (this.isSpinning || this.isGameOver) return;
+              this.handlePotClick(pot, i);
+            });
+
+            this.tweens.add({
+              targets: pot,
+              x: x + Phaser.Math.Between(-3, 3),
+              y: y + Phaser.Math.Between(-3, 3),
+              duration: Phaser.Math.Between(1500, 2500),
+              yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            });
+
+            // String drop
+            this.add.rectangle(x, stringY + 3, 2, Math.abs(y - stringY) - potSize * 0.4, 0xe1c699).setDepth(-1);
+
+            this.pots.push(pot);
+          };
+
+          for (let i = 0; i < row1Count; i++) {
+            addPot(i, row1StartX + i * spacing1, row1Y, string1Y);
+          }
+          for (let i = 0; i < row2Count; i++) {
+            addPot(row1Count + i, row2StartX + i * spacing2, row2Y, string2Y);
+          }
+        } else {
+          // Single-row layout for desktop/tablet
+          const potSize = Math.min(110, (this.gameWidth - 60) / (totalPots * 1.2));
+          const spacing = Math.min(130, (this.gameWidth - 40) / totalPots);
+          const startX = this.gameWidth / 2 - (spacing * (totalPots - 1)) / 2;
+
+          for (let i = 0; i < totalPots; i++) {
+            const x = startX + (i * spacing);
+            const y = this.gameHeight * 0.42;
+
+            const pot = this.add.image(x, y, 'muttiya');
+            const scale = potSize / Math.max(pot.width, pot.height);
+            pot.setScale(scale);
+            pot.setInteractive({ useHandCursor: true });
+            pot.setData("index", i);
+            pot.setData("originalX", x);
+
+            pot.on('pointerover', () => pot.setScale(scale * 1.15));
+            pot.on('pointerout', () => pot.setScale(scale));
+            pot.on('pointerdown', () => {
+              if (this.isSpinning || this.isGameOver) return;
+              this.handlePotClick(pot, i);
+            });
+
+            this.tweens.add({
+              targets: pot,
+              x: x + Phaser.Math.Between(-4, 4),
+              y: y + Phaser.Math.Between(-4, 4),
+              duration: Phaser.Math.Between(1500, 2500),
+              yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            });
+
+            this.pots.push(pot);
+          }
+
+          // Draw rope
+          const stringY = this.gameHeight * 0.42 - 55;
+          this.add.rectangle(this.gameWidth / 2, stringY - 10, this.gameWidth * 0.9, 8, 0x5c4033).setDepth(-1);
+
+          this.pots.forEach(pot => {
+            this.add.rectangle(pot.x, stringY + 5, 2, 35, 0xe1c699).setDepth(-1);
           });
-
-          // Sway animation
-          this.tweens.add({
-            targets: pot,
-            x: x + Phaser.Math.Between(-4, 4),
-            y: y + Phaser.Math.Between(-4, 4),
-            duration: Phaser.Math.Between(1500, 2500),
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-          });
-
-          this.pots.push(pot);
         }
-
-        // Draw the horizontal bamboo/string they are hanging from
-        const stringY = this.gameHeight * 0.35 - 40;
-        const stringLine = this.add.rectangle(this.gameWidth / 2, stringY - 10, this.gameWidth * 0.9, 8, 0x5c4033);
-        stringLine.setDepth(-1);
-        
-        // Small string dropping to each pot
-        this.pots.forEach(pot => {
-          const stringDrop = this.add.rectangle(pot.x, stringY + 5, 2, 35, 0xe1c699);
-          stringDrop.setDepth(-1);
-          // Sync swaying of string with pot
-          this.tweens.add({
-            targets: stringDrop,
-            x: pot.x + (pot.x - pot.x), // Simplified string sway tracking
-            duration: 2000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-          });
-        });
       }
 
       playSpinAnimation() {
         this.isSpinning = true;
+        const isMobile = this.gameWidth <= 500;
+        const blindfoldFontSize = isMobile ? '18px' : '28px';
 
         // Spin the camera
         this.tweens.add({
           targets: this.cameras.main,
-          angle: 1080, // 3 full rotations
+          angle: 1080,
           duration: 3000,
           ease: 'Cubic.easeInOut',
           onComplete: () => {
-             (this.cameras.main as any).setAngle(0); // reset
+             (this.cameras.main as any).setAngle(0);
           }
         });
 
         // Red blindfold cloth slides in from both sides
-        const clothHeight = this.gameHeight * 0.35;
+        const clothHalf = this.gameWidth / 2 + 40;
+        const clothHeight = this.gameHeight * 0.4;
         const clothY = this.gameHeight / 2;
 
-        // Left cloth piece
         const clothLeft = this.add.rectangle(
-          -this.gameWidth / 2, clothY, this.gameWidth / 2 + 40, clothHeight, 0xcc1111
+          -clothHalf, clothY, clothHalf, clothHeight, 0xcc1111
         ).setDepth(50).setAlpha(0.92);
-        // Subtle fabric texture lines
+
         for (let i = 0; i < 6; i++) {
-          const line = this.add.rectangle(
-            -this.gameWidth / 2, clothY - clothHeight/2 + (i * clothHeight/6) + clothHeight/12,
-            this.gameWidth / 2 + 40, 2, 0xaa0000, 0.4
-          ).setDepth(51);
+          const lineY = clothY - clothHeight/2 + (i * clothHeight/6) + clothHeight/12;
+          const line = this.add.rectangle(-clothHalf, lineY, clothHalf, 2, 0xaa0000, 0.4).setDepth(51);
           this.tweens.add({ targets: line, x: this.gameWidth / 4, duration: 800, ease: 'Power2', delay: 200 });
           this.time.delayedCall(3500, () => {
-            this.tweens.add({ targets: line, x: -this.gameWidth / 2, duration: 600, ease: 'Power2', onComplete: () => line.destroy() });
+            this.tweens.add({ targets: line, x: -clothHalf, duration: 600, ease: 'Power2', onComplete: () => line.destroy() });
           });
         }
 
-        // Right cloth piece
         const clothRight = this.add.rectangle(
-          this.gameWidth + this.gameWidth / 2, clothY, this.gameWidth / 2 + 40, clothHeight, 0xcc1111
+          this.gameWidth + clothHalf, clothY, clothHalf, clothHeight, 0xcc1111
         ).setDepth(50).setAlpha(0.92);
 
-        // Slide cloths inward to meet in center
-        this.tweens.add({
-          targets: clothLeft,
-          x: this.gameWidth / 4,
-          duration: 800,
-          ease: 'Power2',
-          delay: 200
-        });
-        this.tweens.add({
-          targets: clothRight,
-          x: this.gameWidth * 3 / 4,
-          duration: 800,
-          ease: 'Power2',
-          delay: 200
-        });
+        this.tweens.add({ targets: clothLeft, x: this.gameWidth / 4, duration: 800, ease: 'Power2', delay: 200 });
+        this.tweens.add({ targets: clothRight, x: this.gameWidth * 3 / 4, duration: 800, ease: 'Power2', delay: 200 });
 
-        // "Blindfolded!" text appears on cloth
         const blindfoldText = this.add.text(this.gameWidth / 2, clothY, '👁️ Blindfolded!', {
-          fontSize: '28px',
+          fontSize: blindfoldFontSize,
           color: '#ffd700',
           fontFamily: 'Arial, sans-serif',
           fontStyle: 'bold',
@@ -195,30 +226,19 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
           this.tweens.add({ targets: blindfoldText, alpha: 1, duration: 300 });
         });
 
-        // Slide cloths back out after spin
         this.time.delayedCall(3500, () => {
           this.tweens.add({ targets: blindfoldText, alpha: 0, duration: 200, onComplete: () => blindfoldText.destroy() });
           this.tweens.add({
-            targets: clothLeft,
-            x: -this.gameWidth / 2,
-            duration: 600,
-            ease: 'Power2',
-            onComplete: () => clothLeft.destroy()
+            targets: clothLeft, x: -clothHalf, duration: 600, ease: 'Power2', onComplete: () => clothLeft.destroy()
           });
           this.tweens.add({
-            targets: clothRight,
-            x: this.gameWidth + this.gameWidth / 2,
-            duration: 600,
-            ease: 'Power2',
-            onComplete: () => clothRight.destroy()
+            targets: clothRight, x: this.gameWidth + clothHalf, duration: 600, ease: 'Power2', onComplete: () => clothRight.destroy()
           });
         });
 
-        // Fade to black towards the end of the spin
         this.time.delayedCall(1500, () => {
            this.cameras.main.fade(1500, 0, 0, 0, false, (camera: any, progress: number) => {
              if (progress === 1) {
-                // Now it's fully black, wait a moment then fade back in
                 this.time.delayedCall(500, () => {
                   this.cameras.main.fadeIn(1000, 0, 0, 0, (cam: any, innerProgress: number) => {
                     if (innerProgress === 1) {
@@ -236,22 +256,22 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
         const isWin = index === this.winningPotIndex;
         const isBonus = index === this.bonusPotIndex;
 
-        // Create stick to swing
-        const stick = this.add.rectangle(this.gameWidth / 2, this.gameHeight + 100, 15, 200, 0x8b5a2b);
+        // Stick starts from bottom of screen, swings to pot
+        const stickLength = Math.min(200, this.gameHeight * 0.28);
+        const stick = this.add.rectangle(pot.x, this.gameHeight + stickLength, 12, stickLength, 0x8b5a2b);
         stick.setOrigin(0.5, 1);
-        stick.setAngle(pot.x < this.gameWidth/2 ? -60 : 60);
+        stick.setAngle(pot.x < this.gameWidth / 2 ? -50 : 50);
 
-        // Stick swing tween
         this.tweens.add({
           targets: stick,
           x: pot.x,
-          y: pot.y + 20,
+          y: pot.y + 30,
           angle: 0,
           duration: 300,
           ease: 'Power2',
           onComplete: () => {
             this.createHitImpact(pot.x, pot.y);
-            
+
             if (isWin) {
               this.playWinEffect(pot);
             } else if (isBonus) {
@@ -259,11 +279,10 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
             } else {
               this.playMissEffect(pot);
             }
-            
-            // Stick drops down
+
             this.tweens.add({
               targets: stick,
-              y: this.gameHeight + 200,
+              y: this.gameHeight + stickLength + 100,
               angle: stick.angle + 45,
               duration: 500,
               ease: 'Power2',
@@ -325,14 +344,18 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
           });
         }
 
-        // Giant Winner Text
-        const winText = this.add.text(this.gameWidth / 2, this.gameHeight * 0.6, "WINNER!", {
-          fontSize: "56px",
+        // Giant Winner Text — responsive font size
+        const isMobileW = this.gameWidth <= 500;
+        const winFontSize = isMobileW ? '36px' : '56px';
+        const winTextY = isMobileW ? this.gameHeight * 0.78 : this.gameHeight * 0.65;
+
+        const winText = this.add.text(this.gameWidth / 2, winTextY, "WINNER!", {
+          fontSize: winFontSize,
           color: "#ffd700",
           fontFamily: "Arial, sans-serif",
           fontStyle: "bold",
           stroke: "#da291c",
-          strokeThickness: 8
+          strokeThickness: isMobileW ? 5 : 8
         }).setOrigin(0.5).setAlpha(0).setScale(0.5);
 
         this.tweens.add({
@@ -353,7 +376,7 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
           body.setVelocity(Phaser.Math.Between(-400, 400), Phaser.Math.Between(-800, -300));
           body.setGravityY(400);
           body.setAngularVelocity(Phaser.Math.Between(-400, 400));
-          
+
           this.tweens.add({
              targets: confetti,
              alpha: 0,
@@ -391,9 +414,13 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
           this.tweens.add({ targets: coin, y: this.gameHeight + 50, duration: 1300, onComplete: () => coin.destroy() });
         }
 
-        const bonusText = this.add.text(this.gameWidth / 2, this.gameHeight * 0.6, "+500 BONUS!", {
-          fontSize: "48px", color: "#c0c0c0", fontFamily: "Arial, sans-serif", fontStyle: "bold",
-          stroke: "#333333", strokeThickness: 6
+        const isMobileB = this.gameWidth <= 500;
+        const bonusFontSize = isMobileB ? '30px' : '48px';
+        const bonusTextY = isMobileB ? this.gameHeight * 0.78 : this.gameHeight * 0.65;
+
+        const bonusText = this.add.text(this.gameWidth / 2, bonusTextY, "+500 BONUS!", {
+          fontSize: bonusFontSize, color: "#c0c0c0", fontFamily: "Arial, sans-serif", fontStyle: "bold",
+          stroke: "#333333", strokeThickness: isMobileB ? 4 : 6
         }).setOrigin(0.5).setAlpha(0).setScale(0.5);
         this.tweens.add({ targets: bonusText, alpha: 1, scale: 1, duration: 500, ease: 'Back.easeOut' });
 
@@ -438,8 +465,12 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
             });
         }
 
-        const missText = this.add.text(this.gameWidth / 2, this.gameHeight * 0.6, "MISSED!", {
-          fontSize: "48px",
+        const isMobileM = this.gameWidth <= 500;
+        const missFontSize = isMobileM ? '32px' : '48px';
+        const missTextY = isMobileM ? this.gameHeight * 0.78 : this.gameHeight * 0.65;
+
+        const missText = this.add.text(this.gameWidth / 2, missTextY, "MISSED!", {
+          fontSize: missFontSize,
           color: "#dddddd",
           fontFamily: "Arial, sans-serif",
           fontStyle: "bold",
