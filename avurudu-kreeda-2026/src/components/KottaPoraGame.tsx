@@ -1,0 +1,1350 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import Phaser from "phaser";
+
+interface KottaPoraGameProps {
+  onMatchEnd: (won: boolean, score: number) => void;
+}
+
+export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
+  const gameRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !gameRef.current) return;
+
+    // ─────────────────────────────────────────────────────────────
+    //  MAIN SCENE
+    // ─────────────────────────────────────────────────────────────
+    class KottaPoraScene extends Phaser.Scene {
+      // ── Character state ─────────────────────────────────────
+      private playerAngle = 0;       // -100 … 100  (negative = lean left)
+      private aiAngle = 0;
+      private playerFallen = false;
+      private aiFallen = false;
+
+      // ── Match state ──────────────────────────────────────────
+      private playerWins = 0;
+      private aiWins = 0;
+      private currentRound = 1;
+      private roundActive = false;
+      private timeLeft = 60;
+      private roundTimerEvent!: Phaser.Time.TimerEvent;
+
+      // ── Swing state ──────────────────────────────────────────
+      private playerSwinging = false;
+      private aiSwinging = false;
+      private playerCooldown = 0;
+      private aiCooldown = 0;
+      private readonly SWING_COOLDOWN = 900; // ms
+
+      // ── Graphics containers ──────────────────────────────────
+      private poleGfx!: Phaser.GameObjects.Graphics;
+      private playerContainer!: Phaser.GameObjects.Container;
+      private aiContainer!: Phaser.GameObjects.Container;
+
+      // Pillow graphics held by each character
+      private playerPillow!: Phaser.GameObjects.Graphics;
+      private aiPillow!: Phaser.GameObjects.Graphics;
+
+      // Balance meter graphics
+      private playerMeterBg!: Phaser.GameObjects.Graphics;
+      private playerMeterFill!: Phaser.GameObjects.Graphics;
+      private aiMeterBg!: Phaser.GameObjects.Graphics;
+      private aiMeterFill!: Phaser.GameObjects.Graphics;
+
+      // UI text
+      private timerText!: Phaser.GameObjects.Text;
+      private roundText!: Phaser.GameObjects.Text;
+      private playerWinsText!: Phaser.GameObjects.Text;
+      private aiWinsText!: Phaser.GameObjects.Text;
+      private swingBtnBg!: Phaser.GameObjects.Graphics;
+      private swingBtnLabel!: Phaser.GameObjects.Text;
+
+      // Dust / confetti particles pool
+      private dustPool: Phaser.GameObjects.Graphics[] = [];
+
+      // Input
+      private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+      private spaceKey!: Phaser.Input.Keyboard.Key;
+
+      // Pole centre Y
+      private poleY = 0;
+
+      // ── Wobble animation ─────────────────────────────────────
+      private poleWobble = 0; // small oscillation added to both characters
+
+      constructor() {
+        super("KottaPoraScene");
+      }
+
+      // ─── preload: nothing to load (pure graphics) ───────────
+      preload() {}
+
+      // ─── create ─────────────────────────────────────────────
+      create() {
+        const { width, height } = this.scale;
+        this.poleY = height * 0.60;
+
+        this.cameras.main.setBackgroundColor("#FFFFFF");
+
+        this.buildBackground(width, height);
+        this.buildPole(width);
+        this.buildCharacters(width, height);
+        this.buildUI(width, height);
+        this.buildMobileControls(width, height);
+
+        // Keyboard
+        this.cursors = this.input.keyboard!.createCursorKeys();
+        this.spaceKey = this.input.keyboard!.addKey(
+          Phaser.Input.Keyboard.KeyCodes.SPACE
+        );
+
+        // Mobile touch regions (left / right half)
+        this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+          if (!this.roundActive) return;
+          if (p.x < width / 2) {
+            this.leanPlayer(-1);
+          } else if (p.x > width * 0.60 && p.y < height * 0.82) {
+            this.leanPlayer(1);
+          }
+        });
+
+        this.showRoundIntro();
+      }
+
+      // ─── update ─────────────────────────────────────────────
+      update(time: number, delta: number) {
+        if (!this.roundActive) return;
+
+        const dt = delta / 1000;
+
+        // ── Player controls ──────────────────────────────────
+        if (
+          Phaser.Input.Keyboard.JustDown(this.cursors.left!) &&
+          !this.playerFallen
+        ) {
+          this.leanPlayer(-1);
+        }
+        if (
+          Phaser.Input.Keyboard.JustDown(this.cursors.right!) &&
+          !this.playerFallen
+        ) {
+          this.leanPlayer(1);
+        }
+        if (
+          Phaser.Input.Keyboard.JustDown(this.spaceKey) &&
+          !this.playerFallen
+        ) {
+          this.playerSwing();
+        }
+
+        // ── Gravity drift (slow drift toward zero, but lean persists) ─
+        if (!this.playerFallen) {
+          // Drift: small constant push toward a random side + restore
+          this.playerAngle += (Math.random() - 0.51) * 2 * dt * 10;
+          this.applyPoleWobble("player");
+          this.updateCharacterVisuals("player");
+          this.updateBalanceMeter("player");
+          if (Math.abs(this.playerAngle) >= 100) this.triggerFall("player");
+        }
+
+        if (!this.aiFallen) {
+          this.runAI(delta);
+          this.aiAngle += (Math.random() - 0.49) * 2 * dt * 10;
+          this.applyPoleWobble("ai");
+          this.updateCharacterVisuals("ai");
+          this.updateBalanceMeter("ai");
+          if (Math.abs(this.aiAngle) >= 100) this.triggerFall("ai");
+        }
+
+        // ── Cooldown counters ────────────────────────────────
+        if (this.playerCooldown > 0) this.playerCooldown -= delta;
+        if (this.aiCooldown > 0) this.aiCooldown -= delta;
+
+        // ── Pole wobble ───────────────────────────────────────
+        this.poleWobble = Math.sin(this.time.now / 600) * 0.5;
+      }
+
+      // ──────────────────────────────────────────────────────────
+      //  BUILD HELPERS
+      // ──────────────────────────────────────────────────────────
+
+      buildBackground(width: number, height: number) {
+        // Subtle festive gradient background
+        const sky = this.add.graphics();
+        sky.fillGradientStyle(0xfff7e6, 0xfff7e6, 0xffeedd, 0xffeedd, 1);
+        sky.fillRect(0, 0, width, height);
+
+        // Crowd silhouettes (simple arcs)
+        const crowd = this.add.graphics();
+        crowd.fillStyle(0xe8d4b8, 0.5);
+        for (let i = 0; i < 18; i++) {
+          const cx = (i / 17) * width;
+          const cy = this.poleY + 80 + Math.sin(i * 1.7) * 15;
+          const r = 14 + Math.sin(i * 2.3) * 5;
+          crowd.fillCircle(cx, cy, r);
+          crowd.fillRect(cx - 6, cy, 12, 30);
+        }
+
+        // Decorative banana-leaf bundles each side
+        const deco = this.add.graphics();
+        deco.fillStyle(0x4caf50, 0.7);
+        // Left bundle
+        for (let i = 0; i < 5; i++) {
+          const angle = -60 + i * 20;
+          const rad = (angle * Math.PI) / 180;
+          deco.fillTriangle(
+            30, this.poleY + 60,
+            30 + Math.cos(rad) * 60, this.poleY + 60 + Math.sin(rad) * 50,
+            30 + Math.cos(rad) * 10, this.poleY + 60 + Math.sin(rad) * 55
+          );
+        }
+        // Right bundle
+        for (let i = 0; i < 5; i++) {
+          const angle = -120 + i * (-20);
+          const rad = (angle * Math.PI) / 180;
+          deco.fillTriangle(
+            width - 30, this.poleY + 60,
+            width - 30 + Math.cos(rad) * 60,
+            this.poleY + 60 + Math.sin(rad) * 50,
+            width - 30 + Math.cos(rad) * 10,
+            this.poleY + 60 + Math.sin(rad) * 55
+          );
+        }
+
+        // Ground
+        const ground = this.add.graphics();
+        ground.fillStyle(0xa06040, 1);
+        ground.fillRect(0, this.poleY + 90, width, height - this.poleY - 90);
+        ground.fillStyle(0x8b5030, 1);
+        ground.fillRect(0, this.poleY + 90, width, 6);
+      }
+
+      buildPole(width: number) {
+        this.poleGfx = this.add.graphics();
+        this.drawPole(width);
+      }
+
+      drawPole(width: number) {
+        this.poleGfx.clear();
+        const poleW = width * 0.72;
+        const poleH = 22;
+        const poleX = width / 2 - poleW / 2;
+        const poleY = this.poleY - poleH / 2;
+
+        // Shadow
+        this.poleGfx.fillStyle(0x000000, 0.15);
+        this.poleGfx.fillRoundedRect(poleX + 4, poleY + 6, poleW, poleH, 11);
+
+        // Main log – gradient-like layering
+        this.poleGfx.fillStyle(0x8b4513, 1);
+        this.poleGfx.fillRoundedRect(poleX, poleY, poleW, poleH, 11);
+        this.poleGfx.fillStyle(0xa0522d, 1);
+        this.poleGfx.fillRoundedRect(poleX, poleY, poleW, poleH * 0.4, 11);
+        this.poleGfx.fillStyle(0xdeb887, 0.3);
+        this.poleGfx.fillRoundedRect(poleX + 4, poleY + 2, poleW - 8, 4, 3);
+
+        // Wood grain lines
+        this.poleGfx.lineStyle(1, 0x6b3410, 0.4);
+        for (let i = 0; i < 5; i++) {
+          const gx = poleX + poleW * (0.15 + i * 0.15);
+          this.poleGfx.beginPath();
+          this.poleGfx.moveTo(gx, poleY + 4);
+          this.poleGfx.lineTo(gx + 8, poleY + poleH - 4);
+          this.poleGfx.strokePath();
+        }
+
+        // Support ropes from pole ends downward (decorative)
+        this.poleGfx.lineStyle(3, 0x8b7355, 0.8);
+        this.poleGfx.beginPath();
+        this.poleGfx.moveTo(poleX, poleY);
+        this.poleGfx.lineTo(poleX - 20, this.poleY + 80);
+        this.poleGfx.strokePath();
+        this.poleGfx.beginPath();
+        this.poleGfx.moveTo(poleX + poleW, poleY);
+        this.poleGfx.lineTo(poleX + poleW + 20, this.poleY + 80);
+        this.poleGfx.strokePath();
+      }
+
+      buildCharacters(width: number, _height: number) {
+        // Player (left) – blue/red Avurudu clothes
+        this.playerContainer = this.add.container(width * 0.30, this.poleY);
+        this.playerPillow = this.drawCharacter(
+          this.playerContainer,
+          true,
+          0xe63946,  // shirt
+          0xfcd116   // dhoti
+        );
+
+        // AI (right) – green/purple
+        this.aiContainer = this.add.container(width * 0.70, this.poleY);
+        this.aiPillow = this.drawCharacter(
+          this.aiContainer,
+          false,
+          0x2a9d8f,  // shirt
+          0x9b5de5   // dhoti
+        );
+      }
+
+      /**
+       * Draws a character into the given container.
+       * Returns the pillow Graphics object so it can be tweened separately.
+       */
+      drawCharacter(
+        container: Phaser.GameObjects.Container,
+        facingRight: boolean,
+        shirtColor: number,
+        dhotColor: number
+      ): Phaser.GameObjects.Graphics {
+        const g = this.add.graphics();
+        const dir = facingRight ? 1 : -1;
+
+        // Dhoti (lower body – sits ON the pole)
+        g.fillStyle(dhotColor, 1);
+        g.fillRoundedRect(-12, 0, 24, 20, 4);
+
+        // Body (shirt)
+        g.fillStyle(shirtColor, 1);
+        g.fillRoundedRect(-10, -30, 20, 30, 5);
+
+        // Hand behind back (small fist on opposite side)
+        g.fillStyle(0xf0c27f, 1);
+        g.fillCircle(-dir * 12, -18, 5);
+
+        // Head
+        g.fillStyle(0xf0c27f, 1);
+        g.fillCircle(0, -42, 12);
+
+        // Eyes
+        g.fillStyle(0x222222, 1);
+        g.fillCircle(dir * 4, -44, 2);
+
+        // Simple smile
+        g.lineStyle(1.5, 0x222222, 1);
+        g.beginPath();
+        g.arc(dir * 2, -40, 4, 0.3, Math.PI - 0.3, false);
+        g.strokePath();
+
+        // Festive head accessory (small rectangle)
+        g.fillStyle(0xfcd116, 1);
+        g.fillRect(-5, -56, 10, 4);
+
+        container.add(g);
+
+        // Pillow arm (the one that swings)
+        const pillow = this.add.graphics();
+        this.drawPillow(pillow, dir, 0);
+        container.add(pillow);
+
+        return pillow;
+      }
+
+      drawPillow(
+        g: Phaser.GameObjects.Graphics,
+        dir: number,
+        swingAngle: number
+      ) {
+        g.clear();
+        g.save();
+
+        // Arm line
+        g.lineStyle(5, 0xf0c27f, 1);
+        g.beginPath();
+        const armEndX = dir * (18 + Math.cos((swingAngle * Math.PI) / 180) * 20);
+        const armEndY = -20 + Math.sin((swingAngle * Math.PI) / 180) * 20;
+        g.moveTo(dir * 8, -22);
+        g.lineTo(armEndX, armEndY);
+        g.strokePath();
+
+        // Pillow rectangle
+        g.fillStyle(0xffffff, 1);
+        g.lineStyle(2, 0xdddddd, 1);
+        const pw = 20, ph = 14;
+        const pAngle = (swingAngle * Math.PI) / 180;
+        // Draw rotated rectangle manually (simple approach: draw at offset)
+        g.fillRoundedRect(armEndX - pw / 2, armEndY - ph / 2, pw, ph, 4);
+        g.strokeRoundedRect(armEndX - pw / 2, armEndY - ph / 2, pw, ph, 4);
+
+        // Pillow stripes (decorative)
+        g.lineStyle(1.5, 0xfcd116, 0.8);
+        for (let i = 1; i < 4; i++) {
+          g.beginPath();
+          g.moveTo(armEndX - pw / 2 + (pw / 4) * i, armEndY - ph / 2);
+          g.lineTo(armEndX - pw / 2 + (pw / 4) * i, armEndY + ph / 2);
+          g.strokePath();
+        }
+
+        g.restore();
+      }
+
+      buildUI(width: number, _height: number) {
+        const { height } = this.scale;
+
+        // === TOP HEADER STRIP ===
+        // Background
+        this.add
+          .rectangle(width / 2, 0, width, 52, 0xda291c, 0.95)
+          .setOrigin(0.5, 0);
+
+        // Title
+        this.add
+          .text(width / 2, 26, "🛌 Kotta Pora – Pillow Fight!", {
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            fontSize: "17px",
+            color: "#fcd116",
+            stroke: "#7a0000",
+            strokeThickness: 2,
+          })
+          .setOrigin(0.5, 0.5);
+
+        // === SECOND ROW: round info + timer ===
+        this.add
+          .rectangle(width / 2, 52, width, 36, 0x000000, 0.07)
+          .setOrigin(0.5, 0);
+
+        // Left: player wins indicator
+        this.playerWinsText = this.add.text(18, 70, "😄 ★☆☆", {
+          fontSize: "14px",
+          fontFamily: "system-ui, sans-serif",
+          color: "#da291c",
+          fontStyle: "bold",
+        }).setOrigin(0, 0.5);
+
+        // Center: timer
+        this.add.circle(width / 2, 70, 18, 0xffffff, 1).setStrokeStyle(
+          3,
+          0xda291c
+        );
+        this.timerText = this.add
+          .text(width / 2, 70, "60", {
+            fontSize: "20px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#da291c",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5);
+
+        // Right: AI wins indicator
+        this.aiWinsText = this.add
+          .text(width - 18, 70, "☆☆☆ 🤖", {
+            fontSize: "14px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#2a9d8f",
+            fontStyle: "bold",
+          })
+          .setOrigin(1, 0.5);
+
+        // Round label
+        this.roundText = this.add
+          .text(width / 2, 94, "Round 1 of 3", {
+            fontSize: "12px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#555555",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5);
+
+        // === BALANCE METERS ===
+        const meterW = 70, meterH = 10;
+        const playerMX = this.playerContainer.x;
+        const aiMX = this.aiContainer.x;
+        const meterY = this.poleY - 90;
+
+        // Player meter bg
+        this.playerMeterBg = this.add.graphics();
+        this.playerMeterBg.fillStyle(0xeeeeee, 1);
+        this.playerMeterBg.fillRoundedRect(
+          playerMX - meterW / 2,
+          meterY,
+          meterW,
+          meterH,
+          5
+        );
+        this.playerMeterBg.lineStyle(1.5, 0xcccccc, 1);
+        this.playerMeterBg.strokeRoundedRect(
+          playerMX - meterW / 2,
+          meterY,
+          meterW,
+          meterH,
+          5
+        );
+
+        this.playerMeterFill = this.add.graphics();
+
+        // AI meter bg
+        this.aiMeterBg = this.add.graphics();
+        this.aiMeterBg.fillStyle(0xeeeeee, 1);
+        this.aiMeterBg.fillRoundedRect(
+          aiMX - meterW / 2,
+          meterY,
+          meterW,
+          meterH,
+          5
+        );
+        this.aiMeterBg.lineStyle(1.5, 0xcccccc, 1);
+        this.aiMeterBg.strokeRoundedRect(
+          aiMX - meterW / 2,
+          meterY,
+          meterW,
+          meterH,
+          5
+        );
+
+        this.aiMeterFill = this.add.graphics();
+
+        // Labels under meters
+        this.add
+          .text(playerMX, meterY - 12, "YOU", {
+            fontSize: "10px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#da291c",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5);
+        this.add
+          .text(aiMX, meterY - 12, "AI-Opponent", {
+            fontSize: "10px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#2a9d8f",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5);
+
+        // Draw initial state
+        this.updateBalanceMeter("player");
+        this.updateBalanceMeter("ai");
+        this.updateWinsDisplay();
+      }
+
+      buildMobileControls(width: number, height: number) {
+        const btnY = height * 0.88;
+
+        // ← lean left
+        const leftBg = this.add.graphics();
+        leftBg.fillStyle(0xda291c, 0.85);
+        leftBg.fillRoundedRect(12, btnY - 28, 60, 56, 12);
+        const leftTxt = this.add
+          .text(42, btnY, "◀ Lean", {
+            fontSize: "12px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#ffffff",
+            fontStyle: "bold",
+            align: "center",
+          })
+          .setOrigin(0.5);
+        leftTxt.setInteractive({ useHandCursor: true });
+        leftBg.setInteractive(
+          new Phaser.Geom.Rectangle(12, btnY - 28, 60, 56),
+          Phaser.Geom.Rectangle.Contains
+        );
+        leftBg.on("pointerdown", () => {
+          if (this.roundActive && !this.playerFallen) this.leanPlayer(-1);
+        });
+
+        // Swing button (large, center-right)
+        this.swingBtnBg = this.add.graphics();
+        this.swingBtnBg.fillStyle(0xf58220, 1);
+        this.swingBtnBg.fillCircle(width / 2 + 40, btnY, 38);
+        this.swingBtnLabel = this.add
+          .text(width / 2 + 40, btnY, "SWING\n🛌", {
+            fontSize: "13px",
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            color: "#ffffff",
+            align: "center",
+          })
+          .setOrigin(0.5);
+
+        this.swingBtnBg.setInteractive(
+          new Phaser.Geom.Circle(width / 2 + 40, btnY, 38),
+          Phaser.Geom.Circle.Contains
+        );
+        this.swingBtnBg.on("pointerdown", () => {
+          if (this.roundActive && !this.playerFallen) this.playerSwing();
+        });
+
+        // → lean right
+        const rightBg = this.add.graphics();
+        rightBg.fillStyle(0xda291c, 0.85);
+        rightBg.fillRoundedRect(width - 72, btnY - 28, 60, 56, 12);
+        const rightTxt = this.add
+          .text(width - 42, btnY, "Lean ▶", {
+            fontSize: "12px",
+            fontFamily: "system-ui, sans-serif",
+            color: "#ffffff",
+            fontStyle: "bold",
+            align: "center",
+          })
+          .setOrigin(0.5);
+        rightTxt.setInteractive({ useHandCursor: true });
+        rightBg.setInteractive(
+          new Phaser.Geom.Rectangle(width - 72, btnY - 28, 60, 56),
+          Phaser.Geom.Rectangle.Contains
+        );
+        rightBg.on("pointerdown", () => {
+          if (this.roundActive && !this.playerFallen) this.leanPlayer(1);
+        });
+      }
+
+      // ──────────────────────────────────────────────────────────
+      //  GAME LOGIC
+      // ──────────────────────────────────────────────────────────
+
+      showRoundIntro() {
+        const { width, height } = this.scale;
+        this.roundActive = false;
+
+        const overlay = this.add
+          .rectangle(width / 2, height / 2, width, height, 0x000000, 0.55)
+          .setDepth(40);
+
+        const roundLabel = this.add
+          .text(width / 2, height * 0.38, `Round ${this.currentRound}`, {
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            fontSize: "42px",
+            color: "#fcd116",
+            stroke: "#000000",
+            strokeThickness: 6,
+          })
+          .setOrigin(0.5)
+          .setDepth(41)
+          .setScale(0);
+
+        const diffLabel = this.add
+          .text(
+            width / 2,
+            height * 0.52,
+            this.currentRound === 1 ? "Easy AI" : "Medium AI – Watch out! 😤",
+            {
+              fontFamily: "system-ui, sans-serif",
+              fontSize: "18px",
+              color: "#ffffff",
+              stroke: "#000000",
+              strokeThickness: 3,
+            }
+          )
+          .setOrigin(0.5)
+          .setDepth(41)
+          .setAlpha(0);
+
+        const hint = this.add
+          .text(
+            width / 2,
+            height * 0.62,
+            "← → to lean  |  SPACE to swing pillow",
+            {
+              fontFamily: "system-ui, sans-serif",
+              fontSize: "13px",
+              color: "#cccccc",
+            }
+          )
+          .setOrigin(0.5)
+          .setDepth(41)
+          .setAlpha(0);
+
+        this.tweens.add({
+          targets: roundLabel,
+          scale: 1,
+          duration: 500,
+          ease: "Back.easeOut",
+        });
+        this.tweens.add({
+          targets: [diffLabel, hint],
+          alpha: 1,
+          duration: 400,
+          delay: 400,
+        });
+
+        this.time.delayedCall(2200, () => {
+          this.tweens.add({
+            targets: [overlay, roundLabel, diffLabel, hint],
+            alpha: 0,
+            duration: 400,
+            onComplete: () => {
+              overlay.destroy();
+              roundLabel.destroy();
+              diffLabel.destroy();
+              hint.destroy();
+              this.startRound();
+            },
+          });
+        });
+      }
+
+      startRound() {
+        this.playerAngle = 0;
+        this.aiAngle = 0;
+        this.playerFallen = false;
+        this.aiFallen = false;
+        this.playerSwinging = false;
+        this.aiSwinging = false;
+        this.playerCooldown = 0;
+        this.aiCooldown = 0;
+        this.timeLeft = 60;
+        this.timerText.setText("60");
+        this.timerText.setColor("#da291c");
+        this.roundText.setText(`Round ${this.currentRound} of 3`);
+
+        // Reset character visuals
+        this.playerContainer.setAngle(0);
+        this.aiContainer.setAngle(0);
+        this.playerContainer.y = this.poleY;
+        this.aiContainer.y = this.poleY;
+        this.playerContainer.setAlpha(1);
+        this.aiContainer.setAlpha(1);
+        this.updateBalanceMeter("player");
+        this.updateBalanceMeter("ai");
+
+        // Start timer
+        if (this.roundTimerEvent) this.roundTimerEvent.remove();
+        this.roundTimerEvent = this.time.addEvent({
+          delay: 1000,
+          callback: this.tickTimer,
+          callbackScope: this,
+          loop: true,
+        });
+
+        this.roundActive = true;
+      }
+
+      tickTimer() {
+        this.timeLeft--;
+        this.timerText.setText(this.timeLeft.toString());
+        if (this.timeLeft <= 10) this.timerText.setColor("#cc0000");
+
+        if (this.timeLeft <= 0) {
+          // Timeout → whoever is more balanced wins
+          const playerAbs = Math.abs(this.playerAngle);
+          const aiAbs = Math.abs(this.aiAngle);
+          if (playerAbs <= aiAbs) {
+            this.endRound("player");
+          } else {
+            this.endRound("ai");
+          }
+        }
+      }
+
+      leanPlayer(dir: number) {
+        if (this.playerFallen) return;
+        // Corrective lean – shifts balance back toward center
+        this.playerAngle -= dir * 12;
+        this.playerAngle = Phaser.Math.Clamp(this.playerAngle, -100, 100);
+        // Visual snap
+        this.tweens.add({
+          targets: this.playerContainer,
+          angle: this.playerAngle * 0.45,
+          duration: 100,
+          ease: "Sine.easeOut",
+        });
+        this.updateBalanceMeter("player");
+      }
+
+      playerSwing() {
+        if (this.playerSwinging || this.playerCooldown > 0) return;
+        this.playerSwinging = true;
+        this.playerCooldown = this.SWING_COOLDOWN;
+        this.animateSwing("player", () => {
+          this.playerSwinging = false;
+          this.checkHit("player");
+        });
+      }
+
+      // ── AI Logic ─────────────────────────────────────────────
+      runAI(delta: number) {
+        const isEasy = this.currentRound === 1;
+        const balanceThreshold = isEasy ? 55 : 35;
+        const attackRange = isEasy ? 30 : 45;
+        const attackChance = isEasy ? 0.004 : 0.009; // per frame
+
+        // Balance self
+        if (Math.abs(this.aiAngle) > balanceThreshold) {
+          const correction = -Math.sign(this.aiAngle) * 8;
+          this.aiAngle += correction * (delta / 1000) * (isEasy ? 1 : 1.8);
+        }
+
+        // Attack
+        const distToPlayer = Math.abs(this.playerAngle);
+        if (
+          !this.aiSwinging &&
+          this.aiCooldown <= 0 &&
+          (distToPlayer < attackRange || Math.random() < attackChance)
+        ) {
+          this.aiSwinging = true;
+          this.aiCooldown = isEasy ? this.SWING_COOLDOWN * 1.6 : this.SWING_COOLDOWN;
+          this.animateSwing("ai", () => {
+            this.aiSwinging = false;
+            this.checkHit("ai");
+          });
+        }
+      }
+
+      // ── Swing animation ───────────────────────────────────────
+      animateSwing(
+        who: "player" | "ai",
+        onComplete: () => void
+      ) {
+        const { width } = this.scale;
+        const container =
+          who === "player" ? this.playerContainer : this.aiContainer;
+        const pillow = who === "player" ? this.playerPillow : this.aiPillow;
+        const dir = who === "player" ? 1 : -1;
+
+        // Flash button for player
+        if (who === "player" && this.swingBtnBg) {
+          this.tweens.add({
+            targets: this.swingBtnBg,
+            scaleX: { from: 1.15, to: 1 },
+            scaleY: { from: 1.15, to: 1 },
+            duration: 200,
+            ease: "Back.easeOut",
+          });
+        }
+
+        // Build swing via a timeline-like sequence using tweens
+        // Phase 1 – wind up
+        this.tweens.add({
+          targets: pillow,
+          angle: dir * -40,
+          duration: 150,
+          ease: "Sine.easeOut",
+          onComplete: () => {
+            // Phase 2 – slam forward
+            this.tweens.add({
+              targets: pillow,
+              angle: dir * 60,
+              duration: 200,
+              ease: "Power3",
+              onUpdate: () => {
+                // Spawn motion trail particles
+                this.spawnTrail(
+                  container.x + dir * 40,
+                  container.y - 20,
+                  0xffffff
+                );
+              },
+              onComplete: () => {
+                // Phase 3 – return
+                this.tweens.add({
+                  targets: pillow,
+                  angle: 0,
+                  duration: 200,
+                  ease: "Sine.easeInOut",
+                  onComplete: () => {
+                    onComplete();
+                  },
+                });
+              },
+            });
+          },
+        });
+
+        // Body lean into swing
+        this.tweens.add({
+          targets: container,
+          angle: dir === 1 ? 8 : -8,
+          duration: 200,
+          yoyo: true,
+          ease: "Sine.easeInOut",
+        });
+
+        // Whoosh text
+        const { height } = this.scale;
+        this.floatText(
+          container.x + dir * 50,
+          container.y - 30,
+          "WHOOSH!",
+          "#f58220",
+          16
+        );
+      }
+
+      checkHit(attacker: "player" | "ai") {
+        const { width } = this.scale;
+        const attackerX =
+          attacker === "player"
+            ? this.playerContainer.x
+            : this.aiContainer.x;
+        const defenderX =
+          attacker === "player"
+            ? this.aiContainer.x
+            : this.playerContainer.x;
+        const defenderFallen =
+          attacker === "player" ? this.aiFallen : this.playerFallen;
+
+        if (defenderFallen) return;
+
+        // Hit if within range
+        const dist = Math.abs(attackerX - defenderX);
+        const hitRange = width * 0.52;
+
+        if (dist < hitRange) {
+          // Apply force to defender
+          const pushDir = Math.sign(defenderX - attackerX);
+          const force = 18 + (this.currentRound - 1) * 4; // increases each round
+
+          if (attacker === "player") {
+            this.aiAngle += pushDir * force;
+            this.aiAngle = Phaser.Math.Clamp(this.aiAngle, -100, 100);
+            this.hitFeedback(this.aiContainer);
+          } else {
+            this.playerAngle += pushDir * force;
+            this.playerAngle = Phaser.Math.Clamp(this.playerAngle, -100, 100);
+            this.hitFeedback(this.playerContainer);
+          }
+
+          // Screen shake
+          this.cameras.main.shake(120, 0.006);
+
+          // Hit sparks
+          const hitX =
+            attacker === "player"
+              ? this.aiContainer.x - 20
+              : this.playerContainer.x + 20;
+          this.spawnHitSparks(hitX, this.poleY - 20);
+
+          // Float text
+          this.floatText(
+            defenderX,
+            this.poleY - 55,
+            "💥 HIT!",
+            "#da291c",
+            20
+          );
+        }
+      }
+
+      hitFeedback(container: Phaser.GameObjects.Container) {
+        const originalAngle = container.angle;
+        this.tweens.add({
+          targets: container,
+          angle: originalAngle + (Math.random() > 0.5 ? 20 : -20),
+          duration: 100,
+          ease: "Power2",
+          yoyo: true,
+        });
+      }
+
+      // ── Update character visual angle based on balance ────────
+      updateCharacterVisuals(who: "player" | "ai") {
+        const angle = who === "player" ? this.playerAngle : this.aiAngle;
+        const container =
+          who === "player" ? this.playerContainer : this.aiContainer;
+        // Map angle (-100…100) to visual tilt degrees (-45…45)
+        const visualAngle = (angle / 100) * 45 + this.poleWobble;
+        container.setAngle(visualAngle);
+      }
+
+      // ── Balance meter update ──────────────────────────────────
+      updateBalanceMeter(who: "player" | "ai") {
+        const meterW = 70, meterH = 10;
+        const angle = who === "player" ? this.playerAngle : this.aiAngle;
+        const fill = who === "player" ? this.playerMeterFill : this.aiMeterFill;
+        const cx =
+          who === "player" ? this.playerContainer.x : this.aiContainer.x;
+        const meterY = this.poleY - 90;
+
+        const normalized = (angle + 100) / 200; // 0…1 (0.5 = center)
+        const fillW = Math.abs(normalized - 0.5) * meterW;
+        const fillX =
+          normalized < 0.5
+            ? cx - meterW / 2
+            : cx;
+
+        // Color: green near center → red at edges
+        const danger = Math.abs(angle) / 100;
+        const r = Math.round(46 + 196 * danger);
+        const g2 = Math.round(196 - 196 * danger);
+        const color = Phaser.Display.Color.GetColor(r, g2, 30);
+
+        fill.clear();
+        fill.fillStyle(color, 1);
+        if (fillW > 0.5) {
+          fill.fillRoundedRect(fillX, meterY, fillW, meterH, 3);
+        }
+
+        // Center marker
+        fill.fillStyle(0x333333, 0.6);
+        fill.fillRect(cx - 1, meterY, 2, meterH);
+      }
+
+      applyPoleWobble(_who: "player" | "ai") {
+        // Wobble is factored into updateCharacterVisuals via poleWobble
+      }
+
+      // ── Round / match end logic ───────────────────────────────
+      triggerFall(who: "player" | "ai") {
+        if (who === "player") {
+          if (this.playerFallen) return;
+          this.playerFallen = true;
+        } else {
+          if (this.aiFallen) return;
+          this.aiFallen = true;
+        }
+
+        this.roundActive = false;
+        if (this.roundTimerEvent) this.roundTimerEvent.remove();
+
+        const container =
+          who === "player" ? this.playerContainer : this.aiContainer;
+        const fallDir = who === "player" ? -1 : 1;
+
+        // Dramatic fall tween
+        this.tweens.add({
+          targets: container,
+          angle: fallDir * 90,
+          y: container.y + 120,
+          alpha: 0,
+          duration: 700,
+          ease: "Power2",
+          onComplete: () => {
+            this.spawnDust(container.x, this.poleY + 80);
+            this.floatText(
+              container.x,
+              this.poleY + 60,
+              "💨 THUD!",
+              "#8b4513",
+              22
+            );
+            this.time.delayedCall(900, () => {
+              this.endRound(who === "player" ? "ai" : "player");
+            });
+          },
+        });
+
+        this.cameras.main.shake(300, 0.012);
+      }
+
+      endRound(winner: "player" | "ai") {
+        const { width, height } = this.scale;
+
+        if (winner === "player") {
+          this.playerWins++;
+        } else {
+          this.aiWins++;
+        }
+
+        this.updateWinsDisplay();
+
+        const msg =
+          winner === "player"
+            ? "🎉 You Win the Round!"
+            : "😅 AI-Opponent Wins the Round!";
+        const color = winner === "player" ? "#2ecc71" : "#e74c3c";
+
+        this.showOverlayMessage(msg, color, () => {
+          // Check match end
+          if (this.playerWins === 2 || this.aiWins === 2) {
+            this.endMatch(this.playerWins === 2);
+          } else {
+            this.currentRound++;
+            this.roundText.setText(`Round ${this.currentRound} of 3`);
+            this.showRoundIntro();
+          }
+        });
+      }
+
+      endMatch(playerWon: boolean) {
+        const { width, height } = this.scale;
+        this.roundActive = false;
+
+        // Dark overlay
+        const overlay = this.add
+          .rectangle(width / 2, height / 2, width, height, 0x0d0d0d, 0)
+          .setDepth(50);
+        this.tweens.add({ targets: overlay, fillAlpha: 0.92, duration: 500 });
+
+        // Confetti if player won
+        if (playerWon) this.spawnConfetti();
+
+        const titleText = playerWon
+          ? "🏆 Kotta Pora\nChampion!"
+          : "😢 Better luck\nnext time!";
+        const titleColor = playerWon ? "#fcd116" : "#ff6b6b";
+
+        const title = this.add
+          .text(width / 2, height * 0.28, titleText, {
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            fontSize: "36px",
+            color: titleColor,
+            stroke: "#000000",
+            strokeThickness: 5,
+            align: "center",
+          })
+          .setOrigin(0.5)
+          .setDepth(51)
+          .setScale(0);
+        this.tweens.add({
+          targets: title,
+          scale: 1,
+          duration: 600,
+          ease: "Back.easeOut",
+          delay: 300,
+        });
+
+        const score = playerWon
+          ? Phaser.Math.Between(150, 200)
+          : Phaser.Math.Between(60, 80);
+        const sub = this.add
+          .text(
+            width / 2,
+            height * 0.52,
+            playerWon
+              ? `Subha Avurudu! 🎊\n+${score} Kreeda Points!`
+              : `You scored ${score} pts\nfor a brave fight!`,
+            {
+              fontFamily: "system-ui, sans-serif",
+              fontSize: "20px",
+              color: "#ffffff",
+              align: "center",
+              lineSpacing: 6,
+            }
+          )
+          .setOrigin(0.5)
+          .setDepth(51)
+          .setAlpha(0);
+        this.tweens.add({ targets: sub, alpha: 1, duration: 400, delay: 700 });
+
+        // Score badge
+        const badge = this.add
+          .rectangle(width / 2, height * 0.67, 200, 44, 0xf58220, 1)
+          .setOrigin(0.5)
+          .setDepth(51)
+          .setAlpha(0);
+        const badgeText = this.add
+          .text(width / 2, height * 0.67, `🏅 +${score} KP`, {
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            fontSize: "22px",
+            color: "#ffffff",
+          })
+          .setOrigin(0.5)
+          .setDepth(52)
+          .setAlpha(0);
+        this.tweens.add({
+          targets: [badge, badgeText],
+          alpha: 1,
+          duration: 400,
+          delay: 1000,
+        });
+
+        // After 4 seconds trigger game over
+        this.time.delayedCall(4200, () => {
+          this.tweens.add({
+            targets: [overlay, title, sub, badge, badgeText],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+              onMatchEnd(playerWon, score);
+            },
+          });
+        });
+      }
+
+      showOverlayMessage(
+        msg: string,
+        color: string,
+        onDone: () => void
+      ) {
+        const { width, height } = this.scale;
+        const overlay = this.add
+          .rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+          .setDepth(30);
+        this.tweens.add({ targets: overlay, fillAlpha: 0.5, duration: 250 });
+
+        const t = this.add
+          .text(width / 2, height * 0.40, msg, {
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            fontSize: "28px",
+            color: "#ffffff",
+            stroke: color,
+            strokeThickness: 5,
+            align: "center",
+          })
+          .setOrigin(0.5)
+          .setDepth(31)
+          .setScale(0);
+        this.tweens.add({
+          targets: t,
+          scale: 1,
+          duration: 400,
+          ease: "Back.easeOut",
+        });
+
+        this.time.delayedCall(1800, () => {
+          this.tweens.add({
+            targets: [overlay, t],
+            alpha: 0,
+            duration: 350,
+            onComplete: () => {
+              overlay.destroy();
+              t.destroy();
+              onDone();
+            },
+          });
+        });
+      }
+
+      updateWinsDisplay() {
+        const stars = (n: number) =>
+          "★".repeat(Math.max(0, n)) + "☆".repeat(Math.max(0, 2 - n));
+        this.playerWinsText.setText(`😄 ${stars(this.playerWins)}`);
+        this.aiWinsText.setText(`${stars(this.aiWins)} 🤖`);
+      }
+
+      // ──────────────────────────────────────────────────────────
+      //  PARTICLES & EFFECTS
+      // ──────────────────────────────────────────────────────────
+
+      spawnTrail(x: number, y: number, color: number) {
+        const g = this.add.graphics().setDepth(18);
+        g.fillStyle(color, 0.55);
+        g.fillCircle(x + Phaser.Math.Between(-8, 8), y + Phaser.Math.Between(-8, 8), Phaser.Math.Between(3, 7));
+        this.tweens.add({
+          targets: g,
+          alpha: 0,
+          scaleX: 0.2,
+          scaleY: 0.2,
+          duration: 280,
+          onComplete: () => g.destroy(),
+        });
+      }
+
+      spawnHitSparks(x: number, y: number) {
+        const colors = [0xfcd116, 0xf58220, 0xda291c, 0xffffff];
+        for (let i = 0; i < 14; i++) {
+          const g = this.add.graphics().setDepth(20);
+          const c = colors[Phaser.Math.Between(0, colors.length - 1)];
+          g.fillStyle(c, 1);
+          g.fillCircle(0, 0, Phaser.Math.Between(2, 6));
+          g.x = x;
+          g.y = y;
+          const angle = Phaser.Math.Between(0, 360) * (Math.PI / 180);
+          const speed = Phaser.Math.Between(40, 110);
+          this.tweens.add({
+            targets: g,
+            x: x + Math.cos(angle) * speed,
+            y: y + Math.sin(angle) * speed,
+            alpha: 0,
+            scaleX: 0.1,
+            scaleY: 0.1,
+            duration: Phaser.Math.Between(350, 600),
+            ease: "Power2",
+            onComplete: () => g.destroy(),
+          });
+        }
+      }
+
+      spawnDust(x: number, y: number) {
+        for (let i = 0; i < 20; i++) {
+          const g = this.add.graphics().setDepth(15);
+          g.fillStyle(0xa0806060, 0.7);
+          g.fillCircle(0, 0, Phaser.Math.Between(4, 12));
+          g.x = x + Phaser.Math.Between(-30, 30);
+          g.y = y;
+          this.tweens.add({
+            targets: g,
+            x: g.x + Phaser.Math.Between(-50, 50),
+            y: g.y - Phaser.Math.Between(10, 50),
+            alpha: 0,
+            scaleX: 2.5,
+            scaleY: 2.5,
+            duration: Phaser.Math.Between(600, 1000),
+            ease: "Power1",
+            onComplete: () => g.destroy(),
+          });
+        }
+      }
+
+      spawnConfetti() {
+        const { width, height } = this.scale;
+        const colors = [
+          0xda291c, 0xfcd116, 0xf58220, 0x2ecc71, 0x3498db, 0xff69b4,
+        ];
+        for (let i = 0; i < 70; i++) {
+          const g = this.add
+            .rectangle(
+              Phaser.Math.Between(width * 0.1, width * 0.9),
+              Phaser.Math.Between(-40, 0),
+              Phaser.Math.Between(5, 11),
+              Phaser.Math.Between(8, 16),
+              colors[Phaser.Math.Between(0, colors.length - 1)]
+            )
+            .setDepth(52);
+          this.tweens.add({
+            targets: g,
+            y: height + 30,
+            x: g.x + Phaser.Math.Between(-70, 70),
+            angle: Phaser.Math.Between(-360, 360),
+            duration: Phaser.Math.Between(1500, 2800),
+            delay: Phaser.Math.Between(0, 700),
+            ease: "Linear",
+            onComplete: () => g.destroy(),
+          });
+        }
+      }
+
+      floatText(
+        x: number,
+        y: number,
+        text: string,
+        color: string,
+        size: number = 16
+      ) {
+        const t = this.add
+          .text(x, y, text, {
+            fontSize: `${size}px`,
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            color,
+            stroke: "#000000",
+            strokeThickness: 3,
+          })
+          .setOrigin(0.5)
+          .setDepth(25);
+        this.tweens.add({
+          targets: t,
+          y: y - 45,
+          alpha: { from: 1, to: 0 },
+          duration: 1100,
+          ease: "Power1",
+          onComplete: () => t.destroy(),
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  PHASER GAME INSTANCE
+    // ─────────────────────────────────────────────────────────────
+    const container = gameRef.current;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
+    const config: Phaser.Types.Core.GameConfig = {
+      type: Phaser.AUTO,
+      width: w,
+      height: h,
+      backgroundColor: "#FFFFFF",
+      scene: KottaPoraScene,
+      parent: container,
+      transparent: false,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: w,
+        height: h,
+      },
+    };
+
+    const phaserGame = new Phaser.Game(config);
+
+    return () => {
+      phaserGame.destroy(true);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={gameRef}
+      className="w-full h-full"
+      style={{ touchAction: "none" }}
+    />
+  );
+}
