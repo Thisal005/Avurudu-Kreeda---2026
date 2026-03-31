@@ -48,9 +48,9 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
         this.isGameOver = false;
         
         // Pick new winner and bonus (must be different)
-        this.winningPotIndex = Phaser.Math.Between(0, 5);
+        this.winningPotIndex = Phaser.Math.Between(0, 6);
         do {
-          this.bonusPotIndex = Phaser.Math.Between(0, 5);
+          this.bonusPotIndex = Phaser.Math.Between(0, 6);
         } while (this.bonusPotIndex === this.winningPotIndex);
         
         // Remove old pots if they exist
@@ -64,7 +64,7 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
       }
 
       drawPots() {
-        const totalPots = 6;
+        const totalPots = 7;
         const potSize = Math.min(110, (this.gameWidth - 60) / (totalPots * 1.2));
         const spacing = Math.min(130, (this.gameWidth - 40) / totalPots);
         const startX = this.gameWidth / 2 - (spacing * (totalPots - 1)) / 2;
