@@ -140,6 +140,80 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
           }
         });
 
+        // Red blindfold cloth slides in from both sides
+        const clothHeight = this.gameHeight * 0.35;
+        const clothY = this.gameHeight / 2;
+
+        // Left cloth piece
+        const clothLeft = this.add.rectangle(
+          -this.gameWidth / 2, clothY, this.gameWidth / 2 + 40, clothHeight, 0xcc1111
+        ).setDepth(50).setAlpha(0.92);
+        // Subtle fabric texture lines
+        for (let i = 0; i < 6; i++) {
+          const line = this.add.rectangle(
+            -this.gameWidth / 2, clothY - clothHeight/2 + (i * clothHeight/6) + clothHeight/12,
+            this.gameWidth / 2 + 40, 2, 0xaa0000, 0.4
+          ).setDepth(51);
+          this.tweens.add({ targets: line, x: this.gameWidth / 4, duration: 800, ease: 'Power2', delay: 200 });
+          this.time.delayedCall(3500, () => {
+            this.tweens.add({ targets: line, x: -this.gameWidth / 2, duration: 600, ease: 'Power2', onComplete: () => line.destroy() });
+          });
+        }
+
+        // Right cloth piece
+        const clothRight = this.add.rectangle(
+          this.gameWidth + this.gameWidth / 2, clothY, this.gameWidth / 2 + 40, clothHeight, 0xcc1111
+        ).setDepth(50).setAlpha(0.92);
+
+        // Slide cloths inward to meet in center
+        this.tweens.add({
+          targets: clothLeft,
+          x: this.gameWidth / 4,
+          duration: 800,
+          ease: 'Power2',
+          delay: 200
+        });
+        this.tweens.add({
+          targets: clothRight,
+          x: this.gameWidth * 3 / 4,
+          duration: 800,
+          ease: 'Power2',
+          delay: 200
+        });
+
+        // "Blindfolded!" text appears on cloth
+        const blindfoldText = this.add.text(this.gameWidth / 2, clothY, '👁️ Blindfolded!', {
+          fontSize: '28px',
+          color: '#ffd700',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 4
+        }).setOrigin(0.5).setDepth(52).setAlpha(0);
+
+        this.time.delayedCall(1000, () => {
+          this.tweens.add({ targets: blindfoldText, alpha: 1, duration: 300 });
+        });
+
+        // Slide cloths back out after spin
+        this.time.delayedCall(3500, () => {
+          this.tweens.add({ targets: blindfoldText, alpha: 0, duration: 200, onComplete: () => blindfoldText.destroy() });
+          this.tweens.add({
+            targets: clothLeft,
+            x: -this.gameWidth / 2,
+            duration: 600,
+            ease: 'Power2',
+            onComplete: () => clothLeft.destroy()
+          });
+          this.tweens.add({
+            targets: clothRight,
+            x: this.gameWidth + this.gameWidth / 2,
+            duration: 600,
+            ease: 'Power2',
+            onComplete: () => clothRight.destroy()
+          });
+        });
+
         // Fade to black towards the end of the spin
         this.time.delayedCall(1500, () => {
            this.cameras.main.fade(1500, 0, 0, 0, false, (camera: any, progress: number) => {
