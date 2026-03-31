@@ -23,7 +23,6 @@ export default function GamesHub() {
   const upcomingGames = [
     { id: 3, title: "Kotta Pora", image: "⚔️" },
     { id: 4, title: "Mark Elephant's Eye", image: "🐘" },
-    { id: 5, title: "Kamba Adeema", image: "🪢" },
   ];
 
   return (
@@ -90,6 +89,25 @@ export default function GamesHub() {
             <div className="text-center">
               <h2 className="text-2xl font-bold text-avurudu-dark mb-1">Kana Mutti Bindeema</h2>
               <p className="text-sm text-avurudu-dark/70 font-medium">Break the hanging pot blindfolded!</p>
+            </div>
+            <button className="mt-2 w-full bg-avurudu-red text-white py-3 rounded-full font-bold shadow-md group-hover:bg-avurudu-orange transition-colors">
+              PLAY NOW
+            </button>
+          </div>
+        </Link>
+
+        {/* Active Game: Imposter Koha */}
+        <Link href="/game/imposter-koha" className="group block relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-avurudu-red to-avurudu-yellow rounded-3xl blur opacity-25 group-hover:opacity-75 transition duration-200"></div>
+          <div className="relative bg-white rounded-3xl p-6 shadow-xl border-2 border-avurudu-yellow flex flex-col items-center gap-4 hover:scale-[1.02] transition-transform">
+            <div className="w-24 h-24 bg-avurudu-yellow/20 rounded-full flex items-center justify-center text-5xl">
+              🐦‍⬛
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-avurudu-dark mb-1">Find the Imposter Koha</h2>
+              <p className="text-sm text-avurudu-dark/70 font-medium whitespace-pre-line">
+                Spot the clever Koha hiding among the crows!
+              </p>
             </div>
             <button className="mt-2 w-full bg-avurudu-red text-white py-3 rounded-full font-bold shadow-md group-hover:bg-avurudu-orange transition-colors">
               PLAY NOW
