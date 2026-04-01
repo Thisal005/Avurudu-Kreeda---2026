@@ -79,7 +79,7 @@ export default function CatchKaviliPage() {
       )}
 
       {/* Game Area */}
-      <div className="w-full max-w-lg aspect-[9/16] md:aspect-[3/4] bg-avurudu-dark/10 rounded-3xl shadow-2xl relative z-10 overflow-hidden border-4 border-avurudu-yellow">
+      <div className="w-full max-w-lg aspect-[9/18] md:aspect-[3/4] bg-avurudu-dark/10 rounded-3xl shadow-2xl relative z-10 overflow-hidden border-4 border-avurudu-yellow">
         
         {!gameOver ? (
           <GameWrapper onGameOver={handleGameOver} />
