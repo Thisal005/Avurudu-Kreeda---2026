@@ -31,12 +31,26 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
       private timeLeft = 60;
       private roundTimerEvent!: Phaser.Time.TimerEvent;
 
-      // ── Swing state ──────────────────────────────────────────
+      // ── Swing & Charge state ──────────────────────────────────
       private playerSwinging = false;
       private aiSwinging = false;
       private playerCooldown = 0;
       private aiCooldown = 0;
       private readonly SWING_COOLDOWN = 900; // ms
+
+      // Charge Mechanic
+      private isCharging = false;
+      private chargeValue = 0; // 0.0 to 1.0
+      private chargeGfx!: Phaser.GameObjects.Graphics;
+
+      // Hype Mechanic
+      private playerHype = 0; // 0 to 100
+      private hypeFill!: Phaser.GameObjects.Graphics;
+      private isHypeSwing = false;
+
+      // Impact & Crowd
+      private impactTremor = 0; // decays to 0
+      private crowdMembers: { gfx: Phaser.GameObjects.Graphics; baseX: number; baseY: number; offset: number }[] = [];
 
       // ── Graphics containers ──────────────────────────────────
       private poleGfx!: Phaser.GameObjects.Graphics;
@@ -100,6 +114,19 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           Phaser.Input.Keyboard.KeyCodes.SPACE
         );
 
+        // Track Spacebar hold for charging
+        this.spaceKey.on("down", () => {
+          if (this.roundActive && !this.playerFallen && !this.playerSwinging && this.playerCooldown <= 0) {
+            this.isCharging = true;
+          }
+        });
+        this.spaceKey.on("up", () => {
+          if (this.isCharging) {
+            this.isCharging = false;
+            this.playerSwing(this.chargeValue);
+          }
+        });
+
         // Mobile touch regions (left / right half)
         this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
           if (!this.roundActive) return;
@@ -132,11 +159,14 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         ) {
           this.leanPlayer(1);
         }
-        if (
-          Phaser.Input.Keyboard.JustDown(this.spaceKey) &&
-          !this.playerFallen
-        ) {
-          this.playerSwing();
+
+        // Charging mechanic update
+        if (this.isCharging) {
+          this.chargeValue = Phaser.Math.Clamp(this.chargeValue + dt * 1.5, 0, 1); // Full charge in ~0.66s
+          this.updateChargeVisuals();
+          
+          // Small continuous wobble while charging
+          this.playerContainer.angle += (Math.random() - 0.5) * 4 * this.chargeValue;
         }
 
         // ── Gravity drift (slow drift toward zero, but lean persists) ─
@@ -162,8 +192,21 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         if (this.playerCooldown > 0) this.playerCooldown -= delta;
         if (this.aiCooldown > 0) this.aiCooldown -= delta;
 
-        // ── Pole wobble ───────────────────────────────────────
-        this.poleWobble = Math.sin(this.time.now / 600) * 0.5;
+        // ── Tremor decay ──────────────────────────────────────────
+        if (this.impactTremor > 0) {
+          this.impactTremor -= dt * 60; // decays over time
+          if (this.impactTremor < 0) this.impactTremor = 0;
+          this.poleWobble = (Math.random() - 0.5) * this.impactTremor;
+          // visually shake the pole graphics
+          this.poleGfx.y = this.poleWobble * 2;
+        } else {
+          // Normal sway
+          this.poleWobble = Math.sin(this.time.now / 600) * 0.5;
+          this.poleGfx.y = 0;
+        }
+
+        // ── Crowd Animation ──────────────────────────────────────
+        this.updateCrowd(time);
       }
 
       // ──────────────────────────────────────────────────────────
@@ -176,15 +219,22 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         sky.fillGradientStyle(0xfff7e6, 0xfff7e6, 0xffeedd, 0xffeedd, 1);
         sky.fillRect(0, 0, width, height);
 
-        // Crowd silhouettes (simple arcs)
-        const crowd = this.add.graphics();
-        crowd.fillStyle(0xe8d4b8, 0.5);
+        // Animated Crowd silhouettes (simple arcs)
         for (let i = 0; i < 18; i++) {
+          const crowdGfx = this.add.graphics();
+          crowdGfx.fillStyle(0xe8d4b8, 0.5);
+          
           const cx = (i / 17) * width;
-          const cy = this.poleY + 80 + Math.sin(i * 1.7) * 15;
+          const baseY = this.poleY + 80 + Math.sin(i * 1.7) * 15;
           const r = 14 + Math.sin(i * 2.3) * 5;
-          crowd.fillCircle(cx, cy, r);
-          crowd.fillRect(cx - 6, cy, 12, 30);
+          
+          crowdGfx.fillCircle(0, 0, r);
+          crowdGfx.fillRect(-6, 0, 12, 30);
+          
+          crowdGfx.x = cx;
+          crowdGfx.y = baseY;
+          
+          this.crowdMembers.push({ gfx: crowdGfx, baseX: cx, baseY, offset: Math.random() * Math.PI * 2 });
         }
 
         // Decorative banana-leaf bundles each side
@@ -435,9 +485,22 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           })
           .setOrigin(1, 0.5);
 
+        // Label
+        this.add.text(width / 2, 105, "HYPE", {
+            fontSize: "10px",
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            color: "#666666",
+        }).setOrigin(0.5);
+
+        // Hype Meter Background
+        const hypeBg = this.add.graphics();
+        hypeBg.fillStyle(0x000000, 0.1);
+        hypeBg.fillRoundedRect(width / 2 - 40, 115, 80, 8, 4);
+        this.hypeFill = this.add.graphics();
+
         // Round label
         this.roundText = this.add
-          .text(width / 2, 94, "Round 1 of 3", {
+          .text(width / 2, 138, "Round 1 of 3", {
             fontSize: "12px",
             fontFamily: "system-ui, sans-serif",
             color: "#555555",
@@ -515,75 +578,141 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.updateBalanceMeter("player");
         this.updateBalanceMeter("ai");
         this.updateWinsDisplay();
+        this.updateHypeMeter();
+
+        // Charge visualization hook
+        this.chargeGfx = this.add.graphics();
+        this.chargeGfx.setDepth(20);
       }
 
       buildMobileControls(width: number, height: number) {
         const btnY = height * 0.88;
+        const leanBtnW = 68;
+        const leanBtnH = 56;
+        const leanGap = 8;
+
+        // ══════════════════════════════════════════════
+        //  LEFT SIDE — Both Lean buttons (horizontal)
+        // ══════════════════════════════════════════════
 
         // ← lean left
         const leftBg = this.add.graphics();
-        leftBg.fillStyle(0xda291c, 0.85);
-        leftBg.fillRoundedRect(12, btnY - 28, 60, 56, 12);
-        const leftTxt = this.add
-          .text(42, btnY, "◀ Lean", {
-            fontSize: "12px",
-            fontFamily: "system-ui, sans-serif",
-            color: "#ffffff",
-            fontStyle: "bold",
-            align: "center",
-          })
-          .setOrigin(0.5);
-        leftTxt.setInteractive({ useHandCursor: true });
-        leftBg.setInteractive(
-          new Phaser.Geom.Rectangle(12, btnY - 28, 60, 56),
-          Phaser.Geom.Rectangle.Contains
-        );
-        leftBg.on("pointerdown", () => {
-          if (this.roundActive && !this.playerFallen) this.leanPlayer(-1);
-        });
-
-        // Swing button (large, center-right)
-        this.swingBtnBg = this.add.graphics();
-        this.swingBtnBg.fillStyle(0xf58220, 1);
-        this.swingBtnBg.fillCircle(width / 2 + 40, btnY, 38);
-        this.swingBtnLabel = this.add
-          .text(width / 2 + 40, btnY, "SWING\n🛌", {
+        leftBg.fillStyle(0xda291c, 0.9);
+        leftBg.fillRoundedRect(12, btnY - leanBtnH / 2, leanBtnW, leanBtnH, 14);
+        // Subtle inner highlight
+        leftBg.fillStyle(0xff4444, 0.25);
+        leftBg.fillRoundedRect(14, btnY - leanBtnH / 2 + 2, leanBtnW - 4, leanBtnH * 0.4, 12);
+        this.add
+          .text(12 + leanBtnW / 2, btnY, "◀ LEFT", {
             fontSize: "13px",
             fontFamily: '"Arial Black", Impact, sans-serif',
             color: "#ffffff",
             align: "center",
           })
           .setOrigin(0.5);
-
-        this.swingBtnBg.setInteractive(
-          new Phaser.Geom.Circle(width / 2 + 40, btnY, 38),
-          Phaser.Geom.Circle.Contains
+        leftBg.setInteractive(
+          new Phaser.Geom.Rectangle(12, btnY - leanBtnH / 2, leanBtnW, leanBtnH),
+          Phaser.Geom.Rectangle.Contains
         );
-        this.swingBtnBg.on("pointerdown", () => {
-          if (this.roundActive && !this.playerFallen) this.playerSwing();
+        leftBg.on("pointerdown", () => {
+          if (this.roundActive && !this.playerFallen) this.leanPlayer(-1);
         });
 
-        // → lean right
+        // → lean right (next to left button)
+        const rightX = 12 + leanBtnW + leanGap;
         const rightBg = this.add.graphics();
-        rightBg.fillStyle(0xda291c, 0.85);
-        rightBg.fillRoundedRect(width - 72, btnY - 28, 60, 56, 12);
-        const rightTxt = this.add
-          .text(width - 42, btnY, "Lean ▶", {
-            fontSize: "12px",
-            fontFamily: "system-ui, sans-serif",
+        rightBg.fillStyle(0xda291c, 0.9);
+        rightBg.fillRoundedRect(rightX, btnY - leanBtnH / 2, leanBtnW, leanBtnH, 14);
+        rightBg.fillStyle(0xff4444, 0.25);
+        rightBg.fillRoundedRect(rightX + 2, btnY - leanBtnH / 2 + 2, leanBtnW - 4, leanBtnH * 0.4, 12);
+        this.add
+          .text(rightX + leanBtnW / 2, btnY, "RIGHT ▶", {
+            fontSize: "13px",
+            fontFamily: '"Arial Black", Impact, sans-serif',
             color: "#ffffff",
-            fontStyle: "bold",
             align: "center",
           })
           .setOrigin(0.5);
-        rightTxt.setInteractive({ useHandCursor: true });
         rightBg.setInteractive(
-          new Phaser.Geom.Rectangle(width - 72, btnY - 28, 60, 56),
+          new Phaser.Geom.Rectangle(rightX, btnY - leanBtnH / 2, leanBtnW, leanBtnH),
           Phaser.Geom.Rectangle.Contains
         );
         rightBg.on("pointerdown", () => {
           if (this.roundActive && !this.playerFallen) this.leanPlayer(1);
         });
+
+        // "BALANCE" label above lean buttons
+        const leanCenterX = 12 + leanBtnW + leanGap / 2;
+        this.add
+          .text(leanCenterX, btnY - leanBtnH / 2 - 14, "BALANCE", {
+            fontSize: "9px",
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            color: "#999999",
+            align: "center",
+          })
+          .setOrigin(0.5);
+
+        // ══════════════════════════════════════════════
+        //  RIGHT SIDE — Swing button (large circle)
+        // ══════════════════════════════════════════════
+        const swingRadius = 46;
+        const swingCX = width - swingRadius - 16;
+        const swingCY = btnY;
+
+        // Outer glow ring
+        const swingGlow = this.add.graphics();
+        swingGlow.fillStyle(0xf58220, 0.2);
+        swingGlow.fillCircle(swingCX, swingCY, swingRadius + 6);
+
+        this.swingBtnBg = this.add.graphics();
+        this.swingBtnBg.fillStyle(0xf58220, 1);
+        this.swingBtnBg.fillCircle(swingCX, swingCY, swingRadius);
+        // Inner highlight
+        this.swingBtnBg.fillStyle(0xffaa44, 0.35);
+        this.swingBtnBg.fillCircle(swingCX, swingCY - 8, swingRadius * 0.6);
+
+        this.swingBtnLabel = this.add
+          .text(swingCX, swingCY, "SWING\n🛌", {
+            fontSize: "15px",
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            color: "#ffffff",
+            align: "center",
+          })
+          .setOrigin(0.5);
+
+        // "ATTACK" label above swing button
+        this.add
+          .text(swingCX, swingCY - swingRadius - 14, "ATTACK", {
+            fontSize: "9px",
+            fontFamily: '"Arial Black", Impact, sans-serif',
+            color: "#999999",
+            align: "center",
+          })
+          .setOrigin(0.5);
+
+        this.swingBtnBg.setInteractive(
+          new Phaser.Geom.Circle(swingCX, swingCY, swingRadius),
+          Phaser.Geom.Circle.Contains
+        );
+        this.swingBtnBg.on("pointerdown", () => {
+          if (this.roundActive && !this.playerFallen && !this.playerSwinging && this.playerCooldown <= 0) {
+            this.isCharging = true;
+            // Visual press feedback
+            this.tweens.add({ targets: this.swingBtnBg, scale: 0.9, duration: 100 });
+          }
+        });
+        
+        const releaseCharge = () => {
+          if (this.isCharging) {
+             this.isCharging = false;
+             this.tweens.killTweensOf(this.swingBtnBg);
+             this.swingBtnBg.setScale(1);
+             this.playerSwing(this.chargeValue);
+          }
+        };
+
+        this.swingBtnBg.on("pointerup", releaseCharge);
+        this.swingBtnBg.on("pointerout", releaseCharge);
       }
 
       // ──────────────────────────────────────────────────────────
@@ -681,6 +810,13 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.playerCooldown = 0;
         this.aiCooldown = 0;
         this.timeLeft = 60;
+        
+        this.isCharging = false;
+        this.chargeValue = 0;
+        this.isHypeSwing = false;
+        this.playerHype = 0;
+        if (this.chargeGfx) this.chargeGfx.clear();
+        
         this.timerText.setText("60");
         this.timerText.setColor("#da291c");
         this.roundText.setText(`Round ${this.currentRound} of 3`);
@@ -694,6 +830,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.aiContainer.setAlpha(1);
         this.updateBalanceMeter("player");
         this.updateBalanceMeter("ai");
+        this.updateHypeMeter();
 
         // Start timer
         if (this.roundTimerEvent) this.roundTimerEvent.remove();
@@ -739,13 +876,26 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.updateBalanceMeter("player");
       }
 
-      playerSwing() {
+      playerSwing(charge: number = 0) {
         if (this.playerSwinging || this.playerCooldown > 0) return;
         this.playerSwinging = true;
         this.playerCooldown = this.SWING_COOLDOWN;
-        this.animateSwing("player", () => {
+        this.chargeValue = Math.max(0.1, charge);
+
+        if (this.playerHype >= 100) {
+          this.isHypeSwing = true;
+          this.playerHype = 0;
+          this.updateHypeMeter();
+          this.floatText(this.playerContainer.x, this.playerContainer.y - 70, "HYPE SWING!", "#2ecc71", 20);
+        }
+
+        if (this.chargeGfx) this.chargeGfx.clear();
+
+        this.animateSwing("player", this.chargeValue, this.isHypeSwing, () => {
           this.playerSwinging = false;
-          this.checkHit("player");
+          this.checkHit("player", this.chargeValue, this.isHypeSwing);
+          this.isHypeSwing = false;
+          this.chargeValue = 0;
         });
       }
 
@@ -771,9 +921,10 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         ) {
           this.aiSwinging = true;
           this.aiCooldown = isEasy ? this.SWING_COOLDOWN * 1.6 : this.SWING_COOLDOWN;
-          this.animateSwing("ai", () => {
+          const aiCharge = Math.random() * 0.7 + 0.3;
+          this.animateSwing("ai", aiCharge, false, () => {
             this.aiSwinging = false;
-            this.checkHit("ai");
+            this.checkHit("ai", aiCharge, false);
           });
         }
       }
@@ -781,6 +932,8 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
       // ── Swing animation ───────────────────────────────────────
       animateSwing(
         who: "player" | "ai",
+        charge: number,
+        isHype: boolean,
         onComplete: () => void
       ) {
         const { width } = this.scale;
@@ -841,7 +994,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         // Body lean into swing
         this.tweens.add({
           targets: container,
-          angle: dir === 1 ? 8 : -8,
+          angle: dir === 1 ? 8 * (1 + charge) : -8 * (1 + charge),
           duration: 200,
           yoyo: true,
           ease: "Sine.easeInOut",
@@ -849,6 +1002,20 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
 
         // Whoosh text
         const { height } = this.scale;
+        
+        if (isHype) {
+           // Hype visual FX on swing
+           const hypeRing = this.add.circle(container.x, container.y - 20, 20, 0x2ecc71, 0.6).setDepth(20);
+           this.tweens.add({
+              targets: hypeRing,
+              scale: 6,
+              alpha: 0,
+              duration: 300,
+              ease: "Power3",
+              onComplete: () => hypeRing.destroy()
+           });
+        }
+        
         this.floatText(
           container.x + dir * 50,
           container.y - 30,
@@ -858,7 +1025,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         );
       }
 
-      checkHit(attacker: "player" | "ai") {
+      checkHit(attacker: "player" | "ai", charge: number, isHype: boolean) {
         const { width } = this.scale;
         const attackerX =
           attacker === "player"
@@ -880,35 +1047,47 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         if (dist < hitRange) {
           // Apply force to defender
           const pushDir = Math.sign(defenderX - attackerX);
-          const force = 18 + (this.currentRound - 1) * 4; // increases each round
+          
+          let forceFactor = 1 + (charge * 1.5);
+          if (isHype) forceFactor = 3.5;
+          const force = (18 + (this.currentRound - 1) * 4) * forceFactor;
 
           if (attacker === "player") {
             this.aiAngle += pushDir * force;
             this.aiAngle = Phaser.Math.Clamp(this.aiAngle, -100, 100);
             this.hitFeedback(this.aiContainer);
+            this.playerHype = Math.min(100, this.playerHype + 15 + Math.floor(charge * 15));
+            this.updateHypeMeter();
           } else {
             this.playerAngle += pushDir * force;
             this.playerAngle = Phaser.Math.Clamp(this.playerAngle, -100, 100);
             this.hitFeedback(this.playerContainer);
           }
+          
+          this.impactTremor = force * 0.4;
 
           // Screen shake
-          this.cameras.main.shake(120, 0.006);
+          this.cameras.main.shake(120, 0.005 * forceFactor);
 
-          // Hit sparks
+          // Hit sparks & POW!
           const hitX =
             attacker === "player"
               ? this.aiContainer.x - 20
               : this.playerContainer.x + 20;
-          this.spawnHitSparks(hitX, this.poleY - 20);
+              
+          if (forceFactor >= 2.0) {
+              this.spawnPOW(hitX, this.poleY - 30);
+          } else {
+              this.spawnHitSparks(hitX, this.poleY - 20);
+          }
 
           // Float text
           this.floatText(
             defenderX,
             this.poleY - 55,
-            "💥 HIT!",
+            isHype ? "💥 SUPER HIT!" : "💥 HIT!",
             "#da291c",
-            20
+            isHype ? 24 : 20
           );
         }
       }
@@ -947,7 +1126,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         const fillW = Math.abs(normalized - 0.5) * meterW;
         const fillX =
           normalized < 0.5
-            ? cx - meterW / 2
+            ? cx - fillW // Changed from meterW/2 logic to center origin properly
             : cx;
 
         // Color: green near center → red at edges
@@ -965,6 +1144,49 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         // Center marker
         fill.fillStyle(0x333333, 0.6);
         fill.fillRect(cx - 1, meterY, 2, meterH);
+      }
+      
+      updateHypeMeter() {
+         if (!this.hypeFill) return;
+         const { width } = this.scale;
+         const hypeW = 80;
+         const hypeH = 8;
+         const cx = width / 2;
+         const cy = 115;
+         
+         this.hypeFill.clear();
+         if (this.playerHype >= 100) {
+            this.hypeFill.fillStyle(0x2ecc71, 1); // bright green
+            this.hypeFill.fillRoundedRect(cx - hypeW / 2, cy, hypeW, hypeH, 4);
+            // Flash effect done via update generally, but here it's static
+         } else if (this.playerHype > 0) {
+            this.hypeFill.fillStyle(0xf58220, 1); // orange
+            this.hypeFill.fillRoundedRect(cx - hypeW / 2, cy, (this.playerHype / 100) * hypeW, hypeH, 4);
+         }
+      }
+      
+      updateChargeVisuals() {
+          if (!this.chargeGfx) return;
+          this.chargeGfx.clear();
+          const cx = this.playerContainer.x;
+          const cy = this.playerContainer.y - 70;
+          const w = 40;
+          this.chargeGfx.fillStyle(0x000000, 0.2);
+          this.chargeGfx.fillRoundedRect(cx - w/2, cy, w, 6, 2);
+          
+          this.chargeGfx.fillStyle(0xfcd116, 1);
+          this.chargeGfx.fillRoundedRect(cx - w/2, cy, w * this.chargeValue, 6, 2);
+      }
+      
+      updateCrowd(time: number) {
+          for (let i = 0; i < this.crowdMembers.length; i++) {
+             const m = this.crowdMembers[i];
+             // Base wobble
+             const jumpOffset = Math.sin((time * 0.003) + m.offset) * 3;
+             // Tremor jump (if impactTremor is high, they jump)
+             const tremorJump = this.impactTremor > 5 ? -this.impactTremor * 0.8 : 0;
+             m.gfx.y = m.baseY + jumpOffset + tremorJump;
+          }
       }
 
       applyPoleWobble(_who: "player" | "ai") {
@@ -1081,16 +1303,22 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           delay: 300,
         });
 
-        const score = playerWon
-          ? Phaser.Math.Between(150, 200)
-          : Phaser.Math.Between(60, 80);
+        let score = 0;
+        if (playerWon) {
+          score = 8000;
+        } else if (this.playerWins === 1) {
+          score = 1000;
+        }
+
         const sub = this.add
           .text(
             width / 2,
             height * 0.52,
             playerWon
               ? `Subha Avurudu! 🎊\n+${score} Kreeda Points!`
-              : `You scored ${score} pts\nfor a brave fight!`,
+              : this.playerWins === 1
+                ? `You won 1 round!\n+${score} Kreeda Points!`
+                : `No points this time!\nBetter luck next match!`,
             {
               fontFamily: "system-ui, sans-serif",
               fontSize: "20px",
@@ -1206,6 +1434,55 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           duration: 280,
           onComplete: () => g.destroy(),
         });
+      }
+
+      spawnPOW(x: number, y: number) {
+         const g = this.add.graphics().setDepth(20);
+         g.fillStyle(0xfcd116, 1);
+         g.lineStyle(2, 0xda291c, 1);
+         g.beginPath();
+         
+         const pts = 10;
+         for (let i = 0; i < pts * 2; i++) {
+            const rad = (i * Math.PI) / pts;
+            const dist = i % 2 === 0 ? 30 : 15;
+            if (i === 0) g.moveTo(Math.cos(rad) * dist, Math.sin(rad) * dist);
+            else g.lineTo(Math.cos(rad) * dist, Math.sin(rad) * dist);
+         }
+         g.closePath();
+         g.fillPath();
+         g.strokePath();
+
+         g.x = x;
+         g.y = y;
+         g.setScale(0);
+
+         const txt = this.add.text(x, y, "POW!", {
+             fontFamily: '"Arial Black", Impact, sans-serif',
+             fontSize: "20px",
+             color: "#da291c",
+             stroke: "#ffffff",
+             strokeThickness: 3
+         }).setOrigin(0.5).setDepth(21).setScale(0);
+
+         this.tweens.add({
+             targets: [g, txt],
+             scale: 1,
+             angle: Phaser.Math.Between(-15, 15),
+             duration: 150,
+             ease: "Back.easeOut",
+             onComplete: () => {
+                 this.time.delayedCall(400, () => {
+                     this.tweens.add({
+                         targets: [g, txt],
+                         alpha: 0,
+                         scale: 1.5,
+                         duration: 250,
+                         onComplete: () => { g.destroy(); txt.destroy(); }
+                     });
+                 });
+             }
+         });
       }
 
       spawnHitSparks(x: number, y: number) {

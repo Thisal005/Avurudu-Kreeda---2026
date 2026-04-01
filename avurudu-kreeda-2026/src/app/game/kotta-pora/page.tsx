@@ -76,7 +76,7 @@ export default function KottaPoraPage() {
       )}
 
       {/* Game canvas */}
-      <div className="w-full max-w-lg aspect-[9/16] md:aspect-[3/4] bg-white rounded-3xl shadow-2xl relative z-10 overflow-hidden border-4 border-avurudu-yellow">
+      <div className="w-full max-w-lg aspect-[9/18] md:aspect-[3/4] bg-white rounded-3xl shadow-2xl relative z-10 overflow-hidden border-4 border-avurudu-yellow">
         {!gameOver ? (
           <GameWrapper key={gameKey} onMatchEnd={handleMatchEnd} />
         ) : (
