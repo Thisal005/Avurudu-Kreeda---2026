@@ -113,40 +113,53 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         bgVideo.on('play', updateScale);
         this.time.delayedCall(100, updateScale); // fallback
 
+        // ── Responsive UI Logic ──
+        const isMobile = this.gameWidth < 600;
+        const uiScale = isMobile ? 0.8 : 1;
+
         // ── Score bar ──
+        // On mobile, push below the HTML Quit button
+        const scoreY = isMobile ? 70 : 8;
+        const scoreW = 200 * uiScale;
+        const scoreH = 56 * uiScale;
+
         const barBg = this.add.graphics().setDepth(20);
         barBg.fillStyle(0x000000, 0.35);
-        barBg.fillRoundedRect(8, 8, 200, 56, 12);
+        barBg.fillRoundedRect(8, scoreY, scoreW, scoreH, 12);
 
-        this.scoreText = this.add.text(20, 16, "KP: 0", {
-          fontSize: "26px", color: "#ffe600", fontStyle: "bold",
+        this.scoreText = this.add.text(8 + 12 * uiScale, scoreY + 8 * uiScale, "KP: 0", {
+          fontSize: `${26 * uiScale}px`, color: "#ffe600", fontStyle: "bold",
           fontFamily: "'Segoe UI', Arial, sans-serif"
         }).setDepth(21);
 
-        this.distanceText = this.add.text(20, 42, "0 m", {
-          fontSize: "15px", color: "#ffffff",
+        this.distanceText = this.add.text(8 + 12 * uiScale, scoreY + 34 * uiScale, "0 m", {
+          fontSize: `${15 * uiScale}px`, color: "#ffffff",
           fontFamily: "'Segoe UI', Arial, sans-serif"
         }).setDepth(21);
 
         // ── Combo badge ──
+        const comboW = 140 * uiScale;
+        const comboH = 56 * uiScale;
+        const comboX = this.gameWidth - comboW - 8;
+
         const comboBg = this.add.graphics().setDepth(20);
         comboBg.fillStyle(0x000000, 0.35);
-        comboBg.fillRoundedRect(this.gameWidth - 148, 8, 140, 56, 12);
+        comboBg.fillRoundedRect(comboX, 8, comboW, comboH, 12);
 
-        this.comboText = this.add.text(this.gameWidth - 78, 20, "COMBO", {
-          fontSize: "13px", color: "#aaaaaa",
+        this.comboText = this.add.text(comboX + comboW / 2, 8 + 12 * uiScale, "COMBO", {
+          fontSize: `${13 * uiScale}px`, color: "#aaaaaa",
           fontFamily: "'Segoe UI', Arial, sans-serif"
         }).setOrigin(0.5, 0).setDepth(21);
 
-        this.speedometerText = this.add.text(this.gameWidth - 78, 36, "1×", {
-          fontSize: "28px", color: "#ffe600", fontStyle: "bold",
+        this.speedometerText = this.add.text(comboX + comboW / 2, 8 + 28 * uiScale, "1×", {
+          fontSize: `${28 * uiScale}px`, color: "#ffe600", fontStyle: "bold",
           fontFamily: "'Segoe UI', Arial, sans-serif"
         }).setOrigin(0.5, 0).setDepth(21);
 
         // ── Lives ──
-        this.livesContainer = this.add.container(
-          this.gameWidth / 2 - 40, 14
-        ).setDepth(21);
+        // Center the lives
+        this.livesContainer = this.add.container(this.gameWidth / 2 - (34 * uiScale), 14).setDepth(21);
+        if (isMobile) this.livesContainer.setScale(uiScale);
         this.updateLivesDisplay();
 
         // ── Feedback text (centre) ──
