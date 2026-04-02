@@ -44,9 +44,6 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
       private droppingInProgress = false;
 
       // ── Graphics layers ───────────────────────────────────────────
-      private skyGfx!: Phaser.GameObjects.Graphics;
-      private floorGfx!: Phaser.GameObjects.Graphics;
-      private roadMarkGfx!: Phaser.GameObjects.Graphics;
       private shadowGfx!: Phaser.GameObjects.Graphics;
       private spoonGfx!: Phaser.GameObjects.Graphics;
       private limeGfx!: Phaser.GameObjects.Graphics;
@@ -79,7 +76,9 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         super("MainScene");
       }
 
-      preload() { /* pure-graphics – no external assets */ }
+      preload() {
+        this.load.video('dehi_bg', '/Dehi/dehi_bg.mp4');
+      }
 
       create() {
         this.gameWidth  = this.scale.width;
@@ -92,9 +91,6 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         this.LIME_R       = Math.min(this.gameWidth * 0.055, 40);
 
         // ── Graphics layers (depth order) ──
-        this.skyGfx       = this.add.graphics().setDepth(0);
-        this.floorGfx     = this.add.graphics().setDepth(1);
-        this.roadMarkGfx  = this.add.graphics().setDepth(2);
         this.shadowGfx    = this.add.graphics().setDepth(9);
         this.spoonGfx     = this.add.graphics().setDepth(10);
         this.limeGfx      = this.add.graphics().setDepth(11);
@@ -102,7 +98,20 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         this.warningGfx   = this.add.graphics().setDepth(28).setAlpha(0);
         this.dustGfx      = this.add.graphics().setDepth(8);
 
-        this.drawSky();
+        // ── Video Background ──
+        const bgVideo = this.add.video(this.gameWidth / 2, this.gameHeight / 2, 'dehi_bg');
+        bgVideo.play(true); // true means loop
+        bgVideo.setMute(true);
+        bgVideo.setLoop(true);
+        bgVideo.setDepth(0);
+        const updateScale = () => {
+          if (bgVideo.width > 0 && bgVideo.height > 0) {
+            const scale = Math.max(this.gameWidth / bgVideo.width, this.gameHeight / bgVideo.height);
+            bgVideo.setScale(scale);
+          }
+        };
+        bgVideo.on('play', updateScale);
+        this.time.delayedCall(100, updateScale); // fallback
 
         // ── Score bar ──
         const barBg = this.add.graphics().setDepth(20);
@@ -175,9 +184,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         });
 
         // ── Spawn timers ──
-        this.time.addEvent({ delay: 600,  callback: this.spawnLandscape, callbackScope: this, loop: true });
-        this.time.addEvent({ delay: 180,  callback: this.spawnRoadLine,  callbackScope: this, loop: true });
-        this.time.addEvent({ delay: 6500, callback: this.spawnPowerUp,   callbackScope: this, loop: true });
+        this.time.addEvent({ delay: 3500, callback: this.spawnPowerUp,   callbackScope: this, loop: true });
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -199,129 +206,105 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         }
       }
 
-      // ═══════════════════════════════════════════════════════════════
-      //  SKY (static gradient simulation)
-      // ═══════════════════════════════════════════════════════════════
-      drawSky() {
-        this.skyGfx.clear();
-        // gradient from pale blue at top to warm cream at horizon
-        const steps = 18;
-        for (let i = 0; i < steps; i++) {
-          const t = i / steps;
-          const r = Math.round(Phaser.Math.Linear(0xd0, 0xff, t));
-          const g = Math.round(Phaser.Math.Linear(0xe8, 0xf8, t));
-          const b = Math.round(Phaser.Math.Linear(0xff, 0xee, t));
-          const col = (r << 16) | (g << 8) | b;
-          const y = (i / steps) * this.HORIZON_Y;
-          const h = (1 / steps) * this.HORIZON_Y + 1;
-          this.skyGfx.fillStyle(col, 1);
-          this.skyGfx.fillRect(0, y, this.gameWidth, h);
-        }
-        // Sun
-        this.skyGfx.fillStyle(0xffdd44, 0.9);
-        this.skyGfx.fillCircle(this.gameWidth * 0.82, this.HORIZON_Y * 0.22, 28);
-        this.skyGfx.fillStyle(0xffee88, 0.3);
-        this.skyGfx.fillCircle(this.gameWidth * 0.82, this.HORIZON_Y * 0.22, 44);
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      //  FLOOR – draws every frame for animated road marks
-      // ═══════════════════════════════════════════════════════════════
-      drawFloor() {
-        this.floorGfx.clear();
-        // Ground fill – warm sandy track
-        this.floorGfx.fillStyle(0xe8c98a, 1);
-        this.floorGfx.fillRect(0, this.HORIZON_Y, this.gameWidth, this.gameHeight - this.HORIZON_Y);
-
-        // Road surface (slightly darker strip in the middle)
-        const gx = this.gameWidth / 2;
-        const roadWidthBottom = this.gameWidth * 0.8;
-        const roadWidthTop    = 6;
-        this.floorGfx.fillStyle(0xd4b47a, 1);
-        this.floorGfx.beginPath();
-        this.floorGfx.moveTo(gx - roadWidthTop / 2, this.HORIZON_Y);
-        this.floorGfx.lineTo(gx + roadWidthTop / 2, this.HORIZON_Y);
-        this.floorGfx.lineTo(gx + roadWidthBottom / 2, this.gameHeight);
-        this.floorGfx.lineTo(gx - roadWidthBottom / 2, this.gameHeight);
-        this.floorGfx.closePath();
-        this.floorGfx.fillPath();
-
-        // Perspective side lines
-        this.floorGfx.lineStyle(3, 0xb89060, 0.9);
-        this.floorGfx.beginPath();
-        this.floorGfx.moveTo(gx - roadWidthTop / 2, this.HORIZON_Y);
-        this.floorGfx.lineTo(gx - roadWidthBottom / 2, this.gameHeight);
-        this.floorGfx.strokePath();
-        this.floorGfx.beginPath();
-        this.floorGfx.moveTo(gx + roadWidthTop / 2, this.HORIZON_Y);
-        this.floorGfx.lineTo(gx + roadWidthBottom / 2, this.gameHeight);
-        this.floorGfx.strokePath();
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      //  ROAD DASHES – animated scene-obj approach
-      // ═══════════════════════════════════════════════════════════════
-      spawnRoadLine() {
-        if (this.isGameOver) return;
-        const gfx = this.add.graphics().setDepth(3);
-        gfx.fillStyle(0xffffff, 0.85);
-        gfx.fillRect(-2, -6, 4, 12);
-        this.sceneObjects.push({ type: "roadmark", x: 0, y: 30, z: 1400, gfx, active: true });
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      //  LANDSCAPE OBJECTS
-      // ═══════════════════════════════════════════════════════════════
-      spawnLandscape() {
-        if (this.isGameOver) return;
-        const emojis = ["🌴", "🌳", "🥭", "🪔", "🎊", "🌺", "🏡", "🎋"];
-        const side = Math.random() > 0.5 ? 1 : -1;
-        const x3D = side * Phaser.Math.Between(220, 700);
-        const obj  = this.add.text(0, 0,
-          Phaser.Math.RND.pick(emojis),
-          { fontSize: "64px" }
-        ).setOrigin(0.5, 1).setDepth(2);
-        this.sceneObjects.push({ type: "landscape", x: x3D, y: 20, z: 1600, gfx: obj, active: true });
-      }
+      // (Sky, Floor, and Road dashed simulation removed as we use video background)
 
       // ═══════════════════════════════════════════════════════════════
       //  POWER-UPS
       // ═══════════════════════════════════════════════════════════════
       spawnPowerUp() {
         if (this.isGameOver) return;
-        const types = [
+        const isBad = Math.random() > 0.65; // 35% chance to be bad
+        const goodTypes = [
           { t: "steady", icon: "✋", label: "STEADY", col: 0x3498db },
           { t: "big",    icon: "🍽️",  label: "BIG BOWL", col: 0xf39c12 },
           { t: "boost",  icon: "⚡",  label: "DASH!",    col: 0xe74c3c }
         ];
-        const sel = Phaser.Math.RND.pick(types);
-        const x3D = Phaser.Math.Between(-120, 120);
+        const badTypes = [
+          { t: "crow", icon: "🐦‍⬛", label: "CROW", col: 0x882222 },
+          { t: "rock", icon: "🪨", label: "ROCK", col: 0xff3333 }
+        ];
+        const sel = Phaser.Math.RND.pick(isBad ? badTypes : goodTypes);
+        
+        // Spawn far outside the center to force leaning
+        const sign = Math.random() > 0.5 ? 1 : -1;
+        const x3D = sign * Phaser.Math.Between(80, 220);
 
         const c = this.add.container(0, 0).setDepth(4);
-        const ring = this.add.graphics();
-        ring.fillStyle(sel.col, 0.9);
-        ring.fillCircle(0, 0, 36);
-        ring.lineStyle(4, 0xffffff, 0.9);
-        ring.strokeCircle(0, 0, 36);
-        const label = this.add.text(0, 0, sel.icon, { fontSize: "32px" }).setOrigin(0.5);
-        c.add([ring, label]);
+        
+        // Ground shadow
+        const shadow = this.add.graphics();
+        shadow.fillStyle(0x000000, 0.35);
+        shadow.fillEllipse(0, 50, 48, 14);
+
+        // Outer glow
+        const glow = this.add.graphics();
+        glow.fillStyle(sel.col, 0.4);
+        glow.fillCircle(0, 0, 48);
+        glow.fillStyle(sel.col, 0.15);
+        glow.fillCircle(0, 0, 60);
+
+        // Main colored orb
+        const orb = this.add.graphics();
+        orb.fillStyle(sel.col, 0.85);
+        orb.fillCircle(0, 0, 38);
+        
+        // Inner shadow for 3D effect
+        orb.fillStyle(0x000000, 0.25);
+        orb.fillCircle(10, 10, 24);
+
+        // Inner highlight (glass reflection)
+        orb.fillStyle(0xffffff, 0.5);
+        orb.fillCircle(-12, -14, 12);
+        orb.fillStyle(0xffffff, 0.8);
+        orb.fillCircle(-16, -18, 4);
+
+        // Border
+        orb.lineStyle(4, isBad ? 0xff0000 : 0xffffff, 0.9);
+        orb.strokeCircle(0, 0, 38);
+
+        // Icon with drop shadow
+        const label = this.add.text(0, 0, sel.icon, { 
+          fontSize: "36px", 
+          shadow: { color: '#000000', fill: true, offsetX: 2, offsetY: 2, blur: 5 }
+        }).setOrigin(0.5);
+
+        c.add([shadow, glow, orb, label]);
 
         this.sceneObjects.push({
           type: "powerup", subType: sel.t, col: sel.col, labelText: sel.label,
-          x: x3D, y: -90, z: 1300, gfx: c, active: true
+          x: x3D, y: 50, z: 1300, gfx: c, active: true
         });
       }
 
       activatePowerUp(type: string, col?: number) {
-        this.activePowerUp = type as any;
-        this.powerupTimer  = 7;
-        if (type === "big") this.BOWL_R = Math.min(this.gameWidth * 0.14, 100);
-        let msg = type === "steady" ? "STEADY HANDS! 🖐"
-                : type === "big"    ? "BIG BOWL! 🍽️"
-                :                     "AVURUDU DASH! ⚡";
-        this.showFeedback(msg, col ? `#${col.toString(16).padStart(6,"0")}` : "#ffe600");
+        if (type === "crow") {
+          this.difficultyMultiplier += 1.5;
+          this.cameras.main.shake(400, 0.03);
+          this.showFeedback("CROW ATTACK! 🐦‍⬛", "#ff0000");
+        } else if (type === "rock") {
+          if (this.score >= 500) this.score -= 500;
+          else this.score = 0;
+          this.comboMultiplier = 1;
+          this.speedometerText.setText("1×");
+          this.cameras.main.shake(200, 0.015);
+          this.showFeedback("-500 KP! 🪨", "#ff0000");
+          this.warningGfx.clear();
+          this.warningGfx.fillStyle(0xff0000, 0.5);
+          this.warningGfx.fillRect(0, 0, this.gameWidth, this.gameHeight);
+          this.warningGfx.setAlpha(1);
+          this.tweens.add({ targets: this.warningGfx, alpha: 0, duration: 400 });
+        } else {
+          this.activePowerUp = type as any;
+          this.powerupTimer  = 7;
+          if (type === "big") this.BOWL_R = Math.min(this.gameWidth * 0.14, 100);
+          let msg = type === "steady" ? "STEADY HANDS! 🖐"
+                  : type === "big"    ? "BIG BOWL! 🍽️"
+                  :                     "AVURUDU DASH! ⚡";
+          this.showFeedback(msg, col ? `#${col.toString(16).padStart(6,"0")}` : "#ffe600");
+        }
+        
         // Burst particles at catch
-        for (let i = 0; i < 14; i++) this.spawnJuiceParticle(this.gameWidth/2, this.gameHeight*0.4, col || 0xffe600);
+        for (let i = 0; i < 14; i++) this.spawnJuiceParticle(this.gameWidth/2, this.gameHeight*0.4, col || 0xff0000);
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -348,11 +331,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         this.juiceParticles.push({ c, vx, vy, life: 1 });
       }
 
-      // ═══════════════════════════════════════════════════════════════
-      //  DRAW SKY / FLOOR / ROAD (called each frame)
-      // ═══════════════════════════════════════════════════════════════
-
-      // ═══════════════════════════════════════════════════════════════
+      // (Draw logic removed)
       //  DRAW FIRST-PERSON SPOON, LIME & HANDS
       // ═══════════════════════════════════════════════════════════════
       drawFirstPerson(bobY: number) {
@@ -586,7 +565,6 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         }
 
         if (this.isGameOver) {
-          this.drawFloor();
           this.drawFirstPerson(0);
           return;
         }
@@ -676,6 +654,10 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
           else if (this.limeOffset > 1.0) this.dropLime(1);
         }
 
+        // Calculate spoon tip X for item collision detection
+        const rad = Phaser.Math.DegToRad(this.spoonAngle);
+        const tipX = cx + Math.sin(rad) * this.SPOON_LENGTH;
+
         // ── 3-D scene objects ─────────────────────────────────────
         for (let i = this.sceneObjects.length - 1; i >= 0; i--) {
           const obj = this.sceneObjects[i];
@@ -697,12 +679,12 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
           // depth: closer objects are drawn on top
           obj.gfx.setDepth(Math.max(2, 9 - obj.z / 180));
 
-          // Hide below horizon
-          obj.gfx.setVisible(sy > this.HORIZON_Y - 10);
+          // removed horizon culling so collectables always show
 
           // Power-up catch
-          if (obj.type === "powerup" && obj.z < 160) {
-            if (Math.abs(sx - cx) < 220) {
+          if (obj.type === "powerup" && obj.z < 160 && obj.z > 40) {
+            // Check distance against the spoon tip X instead of the center
+            if (Math.abs(sx - tipX) < 130) {
               this.activatePowerUp(obj.subType, obj.col);
               obj.gfx.destroy();
               this.sceneObjects.splice(i, 1);
@@ -711,7 +693,6 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         }
 
         // ── Draw everything ───────────────────────────────────────
-        this.drawFloor();
         this.drawFirstPerson(bobY);
       }
     }
