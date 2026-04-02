@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 
 interface KohaGameProps {
@@ -9,7 +9,6 @@ interface KohaGameProps {
 
 export default function KohaGame({ onGameOver }: KohaGameProps) {
   const gameRef = useRef<HTMLDivElement>(null);
-  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !gameRef.current) return;
@@ -803,25 +802,30 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    //  PHASER GAME INSTANCE
+    // ─────────────────────────────────────────────────────────────
+    const container = gameRef.current;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      parent: gameRef.current,
-      width: 600,
-      height: 800,
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-      },
+      width: w,
+      height: h,
       backgroundColor: '#FFFFFF',
       scene: ImposterGameScene,
-      physics: {
-        default: 'arcade',
-        arcade: { debug: false }
-      }
+      parent: container,
+      transparent: false,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: w,
+        height: h,
+      },
     };
 
     const game = new Phaser.Game(config);
-    setIsReady(true);
 
     return () => {
       game.destroy(true);
@@ -829,17 +833,10 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
   }, [onGameOver]);
 
   return (
-    <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
-      {!isReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white rounded-3xl">
-          <p className="font-bold text-xl text-avurudu-dark animate-pulse">Initializing Game...</p>
-        </div>
-      )}
-      <div
-        ref={gameRef}
-        className="w-full h-full rounded-3xl overflow-hidden"
-        style={{ touchAction: 'none' }}
-      />
-    </div>
+    <div
+      ref={gameRef}
+      className="w-full h-full"
+      style={{ touchAction: 'none' }}
+    />
   );
 }

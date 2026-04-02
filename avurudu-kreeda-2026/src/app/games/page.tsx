@@ -20,9 +20,7 @@ export default function GamesHub() {
     if (saved) setTotalPoints(parseInt(saved, 10));
   }, []);
 
-  const upcomingGames = [
-    { id: 4, title: "Mark Elephant's Eye", image: "🐘" },
-  ];
+  const upcomingGames: { id: number; title: string; image: string }[] = [];
 
   return (
     <main className="min-h-screen bg-avurudu-bg flex flex-col p-6 overflow-hidden relative">
@@ -127,6 +125,45 @@ export default function GamesHub() {
             </div>
             <button className="mt-2 w-full bg-avurudu-red text-white py-3 rounded-full font-bold shadow-md group-hover:bg-avurudu-orange transition-colors">
               PLAY NOW
+            </button>
+          </div>
+        </Link>
+
+        {/* Active Game: Dehi Gediya Hande */}
+        <Link href="/game/dehi-gediya" className="group block relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-avurudu-red to-avurudu-yellow rounded-3xl blur opacity-25 group-hover:opacity-75 transition duration-200"></div>
+          <div className="relative bg-white rounded-3xl p-6 shadow-xl border-2 border-avurudu-yellow flex flex-col items-center gap-4 hover:scale-[1.02] transition-transform">
+            <div className="w-24 h-24 bg-avurudu-yellow/20 rounded-full flex items-center justify-center text-5xl">
+              🍋
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-avurudu-dark mb-1">Dehi Gediya Hande</h2>
+              <p className="text-sm text-avurudu-dark/70 font-medium whitespace-pre-line">
+                Balance the lime on the spoon while running!
+              </p>
+            </div>
+            <button className="mt-2 w-full bg-avurudu-red text-white py-3 rounded-full font-bold shadow-md group-hover:bg-avurudu-orange transition-colors">
+              PLAY NOW
+            </button>
+          </div>
+        </Link>
+
+        {/* Active Game: Gini Uthsawaya */}
+        <Link href="/game/gini-uthsawaya" className="group block relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-avurudu-red to-avurudu-yellow rounded-3xl blur opacity-40 group-hover:opacity-100 transition duration-200"></div>
+          <div className="relative bg-[#0a0a1a] rounded-3xl p-6 shadow-xl border-2 border-avurudu-orange flex flex-col items-center gap-4 hover:scale-[1.02] transition-transform">
+            <div className="w-24 h-24 bg-avurudu-yellow/10 rounded-full flex items-center justify-center text-5xl relative overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-avurudu-yellow/20 to-transparent animate-pulse rounded-full"></div>
+               🎇
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-white mb-1 drop-shadow-md">Awurudu Gini Uthsawaya</h2>
+              <p className="text-sm text-white/80 font-medium whitespace-pre-line">
+                Light up the celebration! Buy, view, and ignite stunning firecrackers.
+              </p>
+            </div>
+            <button className="mt-2 w-full bg-gradient-to-r from-avurudu-yellow to-avurudu-orange text-black py-3 rounded-full font-black shadow-[0_0_15px_rgba(255,165,0,0.5)] group-hover:scale-105 transition-transform">
+              ENTER GROUND
             </button>
           </div>
         </Link>
