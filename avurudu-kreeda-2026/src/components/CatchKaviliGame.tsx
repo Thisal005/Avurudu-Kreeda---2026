@@ -63,55 +63,112 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
       create() {
         this.gameWidth = this.scale.width;
         this.gameHeight = this.scale.height;
-        this.cameras.main.setBackgroundColor("#fffbf0");
+        
+        // ── Background ───────────────────────────────────────────
+        this.cameras.main.setBackgroundColor("#FFFFFF");
+        
+        // Sky gradient
+        const sky = this.add.graphics();
+        sky.fillGradientStyle(0xfff7e6, 0xfff7e6, 0xffeedd, 0xffeedd, 1);
+        sky.fillRect(0, 0, this.gameWidth, this.gameHeight);
+        
+        // Subtle pattern (dots)
+        const pattern = this.add.graphics();
+        pattern.fillStyle(0x000000, 0.03);
+        for (let x = 0; x < this.gameWidth; x += 30) {
+          for (let y = 0; y < this.gameHeight; y += 30) {
+            pattern.fillCircle(x + (y % 60 ? 15 : 0), y, 2);
+          }
+        }
 
         // Ground decoration
-        this.add.rectangle(this.gameWidth / 2, this.gameHeight - 8, this.gameWidth, 16, 0xc97b2a, 0.2);
+        this.add.rectangle(this.gameWidth / 2, this.gameHeight - 30, this.gameWidth, 60, 0xa06040, 1);
+        this.add.rectangle(this.gameWidth / 2, this.gameHeight - 57, this.gameWidth, 6, 0x8b5030, 1);
 
+        // ── Player & Basket ──────────────────────────────────────
         // Invisible collision rect for basket
-        this.player = this.add.rectangle(this.gameWidth / 2, this.gameHeight - 55, 76, 48, 0xffffff, 0);
+        this.player = this.add.rectangle(this.gameWidth / 2, this.gameHeight - 110, 76, 48, 0xffffff, 0);
         this.physics.add.existing(this.player, false);
         const pb = this.player.body as Phaser.Physics.Arcade.Body;
         pb.setCollideWorldBounds(true);
 
         // Basket graphics
         this.basketGfx = this.add.graphics();
-        this.drawBasket(this.gameWidth / 2, this.gameHeight - 55);
+        this.drawBasket(this.gameWidth / 2, this.gameHeight - 110);
 
-        // UI - Score
-        this.add.rectangle(80, 30, 140, 40, 0xda291c, 0.9).setDepth(10).setStrokeStyle(2, 0xffffff, 0.3);
-        this.scoreText = this.add.text(18, 16, "KP: 0", {
-          fontSize: "24px", color: "#ffffff", fontStyle: "bold", fontFamily: "Arial, sans-serif"
-        }).setDepth(11);
-
-        // UI - Timer
-        this.add.rectangle(this.gameWidth - 60, 30, 100, 40, 0xf58220, 0.9).setDepth(10).setStrokeStyle(2, 0xffffff, 0.3);
-        this.timerText = this.add.text(this.gameWidth - 60, 18, "90s", {
-          fontSize: "24px", color: "#ffffff", fontStyle: "bold", fontFamily: "Arial, sans-serif"
-        }).setOrigin(0.5, 0).setDepth(11);
+        // ── UI ───────────────────────────────────────────────────
+        this.buildUI();
 
         // Combo text
-        this.comboText = this.add.text(this.gameWidth / 2, 70, "", {
-          fontSize: "26px", color: "#da291c", fontStyle: "bold", fontFamily: "Arial, sans-serif",
-          stroke: "#ffffff", strokeThickness: 4
+        this.comboText = this.add.text(this.gameWidth / 2, 160, "", {
+          fontSize: "26px", 
+          color: "#da291c", 
+          fontStyle: "bold", 
+          fontFamily: '"Arial Black", Impact, sans-serif',
+          stroke: "#ffffff", 
+          strokeThickness: 5
         }).setOrigin(0.5).setDepth(12).setAlpha(0);
 
-        // Input
+        // ── Input ────────────────────────────────────────────────
         if (this.input.keyboard) {
           this.cursors = this.input.keyboard.createCursorKeys();
         }
+        
+        // Touch move
         this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-          if (pointer.isDown) {
+          if (pointer.isDown || pointer.wasTouch) {
             this.player.x = Phaser.Math.Clamp(pointer.x, 40, this.gameWidth - 40);
           }
         });
 
-        // Timers
+        // ── Timers ───────────────────────────────────────────────
         this.gameTimer = this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
         this.spawnTimer = this.time.addEvent({ delay: 800, callback: this.spawnItem, callbackScope: this, loop: true });
 
         // Spawn first item immediately
         this.spawnItem();
+      }
+
+      buildUI() {
+        const width = this.gameWidth;
+
+        // === TOP HEADER STRIP ===
+        this.add.rectangle(width / 2, 0, width, 52, 0xda291c, 0.95).setOrigin(0.5, 0).setDepth(20);
+        this.add.text(width / 2, 26, "🍏 Catch the Kavilis!", {
+          fontFamily: '"Arial Black", Impact, sans-serif',
+          fontSize: "18px",
+          color: "#fcd116",
+          stroke: "#7a0000",
+          strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(21);
+
+        // === SECOND ROW: info bar ===
+        this.add.rectangle(width / 2, 52, width, 36, 0x000000, 0.07).setOrigin(0.5, 0).setDepth(20);
+
+        // Left: Score
+        this.scoreText = this.add.text(18, 70, "POINTS: 0", {
+          fontSize: "14px",
+          fontFamily: "system-ui, sans-serif",
+          color: "#da291c",
+          fontStyle: "bold",
+        }).setOrigin(0, 0.5).setDepth(21);
+
+        // Center: Timer Circle
+        this.add.circle(width / 2, 70, 18, 0xffffff, 1).setStrokeStyle(3, 0xda291c).setDepth(21);
+        this.timerText = this.add.text(width / 2, 70, "90", {
+          fontSize: "18px",
+          fontFamily: "system-ui, sans-serif",
+          color: "#da291c",
+          fontStyle: "bold",
+        }).setOrigin(0.5).setDepth(21);
+
+        // Right Label
+        this.add.text(width - 18, 70, "COLLECT!", {
+          fontSize: "14px",
+          fontFamily: "system-ui, sans-serif",
+          color: "#f58220",
+          fontStyle: "bold",
+        }).setOrigin(1, 0.5).setDepth(21);
       }
 
       drawBasket(cx: number, cy: number) {
@@ -234,7 +291,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
         let label = "";
         let points = 0;
         const speedMult = isHardMode ? 1.6 : 1;
-        let fallSpeed = Phaser.Math.Between(150, 280) * speedMult;
+        let fallSpeed = Phaser.Math.Between(180, 320) * speedMult;
 
         if (type === "GOOD") {
           const idx = Phaser.Math.Between(0, GOOD_ITEMS.length - 1);
@@ -246,17 +303,17 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
           textureKey = BONUS_ITEMS[idx].key;
           label = BONUS_ITEMS[idx].label;
           points = 50;
-          fallSpeed = Phaser.Math.Between(200, 350) * speedMult;
+          fallSpeed = Phaser.Math.Between(250, 400) * speedMult;
         } else {
           const idx = Phaser.Math.Between(0, BAD_ITEMS.length - 1);
           textureKey = BAD_ITEMS[idx].key;
           label = BAD_ITEMS[idx].label;
           points = -20;
-          fallSpeed = Phaser.Math.Between(100, 200) * speedMult;
+          fallSpeed = Phaser.Math.Between(150, 250) * speedMult;
         }
 
         // Create image sprite scaled to consistent size
-        const item = this.add.image(x, -40, textureKey).setOrigin(0.5);
+        const item = this.add.image(x, -60, textureKey).setOrigin(0.5);
         const maxDim = Math.max(item.width, item.height);
         if (maxDim > 0) item.setScale(ITEM_SIZE / maxDim);
         item.setDepth(5);
@@ -268,7 +325,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
         item.setData("wobblePeriod", Phaser.Math.Between(400, 900));
 
         // Label below item
-        const txt = this.add.text(x, -10, label, {
+        const txt = this.add.text(x, -30, label, {
           fontSize: "11px", color: "#5c2c16", fontFamily: "Arial, sans-serif", fontStyle: "bold",
         }).setOrigin(0.5).setDepth(6);
         item.setData("labelText", txt);
@@ -308,7 +365,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
           this.burstParticles(item.x, item.y, 0xda291c);
         }
 
-        this.scoreText.setText(`KP: ${this.score}`);
+        this.scoreText.setText(`POINTS: ${this.score}`);
         if (labelText?.active) labelText.destroy();
         item.destroy();
         const idx = this.fallingItems.indexOf(item);
@@ -350,7 +407,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
 
       updateTimer() {
         this.timeLeft--;
-        this.timerText.setText(`${this.timeLeft}s`);
+        this.timerText.setText(this.timeLeft.toString());
         if (this.timeLeft <= 10) this.timerText.setColor("#ff0000");
 
         if (this.timeLeft <= 0) {
@@ -362,16 +419,31 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    //  PHASER GAME INSTANCE
+    // ─────────────────────────────────────────────────────────────
+    const container = gameRef.current;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
     const config: Phaser.Types.Core.GameConfig = {
-      type: Phaser.CANVAS,
-      parent: gameRef.current,
-      backgroundColor: "#fffbf0",
+      type: Phaser.AUTO,
+      width: w,
+      height: h,
+      backgroundColor: "#FFFFFF",
       physics: {
         default: "arcade",
         arcade: { gravity: { x: 0, y: 0 }, debug: false },
       },
       scene: MainScene,
-      scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
+      parent: container,
+      transparent: false,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: w,
+        height: h,
+      },
     };
 
     phaserGame.current = new Phaser.Game(config);
@@ -382,5 +454,12 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
     };
   }, [onGameOver]);
 
-  return <div ref={gameRef} className="w-full h-full" />;
+  return (
+    <div
+      ref={gameRef}
+      className="w-full h-full"
+      style={{ touchAction: "none" }}
+    />
+  );
 }
+
