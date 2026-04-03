@@ -238,9 +238,8 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         ];
         const sel = Phaser.Math.RND.pick(isBad ? badTypes : goodTypes);
         
-        // Spawn far outside the center to force leaning
-        const sign = Math.random() > 0.5 ? 1 : -1;
-        const x3D = sign * Phaser.Math.Between(80, 220);
+        // Spawn across the entire road (including the center lane) to force dodging bad items
+        const x3D = Phaser.Math.Between(-220, 220);
 
         const c = this.add.container(0, 0).setDepth(4);
         
@@ -262,7 +261,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         orb.fillCircle(0, 0, 38);
         
         // Inner shadow for 3D effect
-        orb.fillStyle(0x000000, 0.25);
+        //orb.fillStyle(0x000000, 0.25);
         orb.fillCircle(10, 10, 24);
 
         // Inner highlight (glass reflection)
@@ -278,7 +277,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         // Icon with drop shadow
         const label = this.add.text(0, 0, sel.icon, { 
           fontSize: "36px", 
-          shadow: { color: '#000000', fill: true, offsetX: 2, offsetY: 2, blur: 5 }
+          //shadow: { color: '#000000', fill: true, offsetX: 2, offsetY: 2, blur: 5 }
         }).setOrigin(0.5);
 
         c.add([shadow, glow, orb, label]);
@@ -360,10 +359,10 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
 
         const perpX = Math.cos(rad);
         const perpY = Math.sin(rad);
-        const BW = 88, TW = 18; // bottom / top half-width
+        const BW = 88, TW = 12; // bottom / top half-width
 
-        // Wood grain highlight
-        this.spoonGfx.fillStyle(0xc68642, 1);
+        // Base metallic handle
+        this.spoonGfx.fillStyle(0xb0b0b0, 1);
         this.spoonGfx.beginPath();
         this.spoonGfx.moveTo(pivotX - BW * perpX, pivotY - BW * perpY);
         this.spoonGfx.lineTo(tipX - TW * perpX, tipY - TW * perpY);
@@ -372,56 +371,86 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         this.spoonGfx.closePath();
         this.spoonGfx.fillPath();
 
-        // Edge shading
-        this.spoonGfx.lineStyle(5, 0x7a4a1e, 1);
+        // Edge shading (metallic dark reflection)
+        this.spoonGfx.lineStyle(6, 0x444444, 0.8);
         this.spoonGfx.beginPath();
         this.spoonGfx.moveTo(pivotX - BW * perpX, pivotY - BW * perpY);
         this.spoonGfx.lineTo(tipX - TW * perpX, tipY - TW * perpY);
         this.spoonGfx.strokePath();
-        this.spoonGfx.lineStyle(3, 0xdaa060, 0.6);
+
+        this.spoonGfx.lineStyle(4, 0x888888, 0.7);
         this.spoonGfx.beginPath();
-        this.spoonGfx.moveTo(pivotX - BW * 0.4 * perpX, pivotY - BW * 0.4 * perpY);
-        this.spoonGfx.lineTo(tipX - TW * 0.4 * perpX, tipY - TW * 0.4 * perpY);
+        this.spoonGfx.moveTo(pivotX + BW * perpX, pivotY + BW * perpY);
+        this.spoonGfx.lineTo(tipX + TW * perpX, tipY + TW * perpY);
+        this.spoonGfx.strokePath();
+
+        // Center highlight (shiny metal)
+        this.spoonGfx.lineStyle(2, 0xffffff, 0.9);
+        this.spoonGfx.beginPath();
+        this.spoonGfx.moveTo(pivotX - BW * 0.3 * perpX, pivotY - BW * 0.3 * perpY);
+        this.spoonGfx.lineTo(tipX - TW * 0.3 * perpX, tipY - TW * 0.3 * perpY);
         this.spoonGfx.strokePath();
 
         // ── Spoon bowl ────────────────────────────────────────────
         const BR = this.BOWL_R;
-        // Outer bowl
-        this.spoonGfx.fillStyle(0xb87333, 1);
+        
+        // Outer bowl (metallic round base)
+        this.spoonGfx.fillStyle(0xcccccc, 1);
         this.spoonGfx.fillCircle(tipX, tipY, BR);
-        // Rim
-        this.spoonGfx.lineStyle(4, 0x7a4a1e, 1);
+        
+        // Rim shadow (thickness)
+        this.spoonGfx.lineStyle(3, 0x555555, 1);
         this.spoonGfx.strokeCircle(tipX, tipY, BR);
-        // Inner concave illusion
-        this.spoonGfx.fillStyle(0x8b5c28, 1);
-        this.spoonGfx.fillCircle(tipX + 4, tipY + 4, BR * 0.78);
-        // Sheen
-        this.spoonGfx.fillStyle(0xffe0a0, 0.25);
-        this.spoonGfx.fillCircle(tipX - BR * 0.3, tipY - BR * 0.3, BR * 0.3);
+
+        // Inner concave illusion (darker metal)
+        this.spoonGfx.fillStyle(0x999999, 1);
+        this.spoonGfx.fillCircle(tipX, tipY, BR * 0.85);
+
+        // Deep shadow at bottom of the bowl
+        this.spoonGfx.fillStyle(0x666666, 0.6);
+        this.spoonGfx.fillCircle(tipX, tipY + BR * 0.2, BR * 0.65);
+
+        // Sheen at the top lip
+        this.spoonGfx.fillStyle(0xffffff, 0.6);
+        this.spoonGfx.fillEllipse(tipX, tipY - BR * 0.6, BR * 1.2, BR * 0.35);
 
         // ── Lime ──────────────────────────────────────────────────
         this.limeGfx.clear();
         this.shadowGfx.clear();
 
         if (this.canDrop && !this.droppingInProgress) {
-          const offset   = this.limeOffset * this.BOWL_R * 0.9;
+          const offset   = this.limeOffset * this.BOWL_R * 0.8; // clamp slightly tighter for oval
           const limeX    = tipX + offset * perpX;
-          const limeY    = tipY + offset * perpY - this.LIME_R * 0.5;
+          const limeY    = tipY + offset * perpY - this.LIME_R * 0.4;
           const LR       = this.LIME_R;
 
-          // Shadow on bowl
-          this.shadowGfx.fillStyle(0x000000, 0.25);
-          this.shadowGfx.fillEllipse(limeX + 4, limeY + LR * 0.7, LR * 1.6, LR * 0.7);
+          // Realistic Contact Shadow inside the bowl
+          this.shadowGfx.fillStyle(0x000000, 0.4);
+          this.shadowGfx.fillEllipse(limeX + 2, limeY + LR * 0.6, LR * 1.4, LR * 0.6);
 
-          // Lime body – multi-pass for juicy look
-          this.limeGfx.fillStyle(0x228b22, 1);        // dark green base
+          // Lime body – multi-pass for 3D juicy look
+          this.limeGfx.fillStyle(0x1e5c1e, 1);        // dark green base shadow
           this.limeGfx.fillCircle(limeX, limeY, LR);
-          this.limeGfx.fillStyle(0x32CD32, 1);        // bright green top
-          this.limeGfx.fillCircle(limeX, limeY, LR * 0.88);
-          this.limeGfx.fillStyle(0x7CFC00, 0.7);      // yellow-green sheen
-          this.limeGfx.fillCircle(limeX - LR * 0.3, limeY - LR * 0.3, LR * 0.42);
-          this.limeGfx.fillStyle(0xffffff, 0.25);     // specular
-          this.limeGfx.fillCircle(limeX - LR * 0.22, limeY - LR * 0.38, LR * 0.18);
+          
+          this.limeGfx.fillStyle(0x32CD32, 1);        // bright green midtone
+          this.limeGfx.fillCircle(limeX - LR * 0.1, limeY - LR * 0.1, LR * 0.9);
+          
+          this.limeGfx.fillStyle(0x7CFC00, 0.8);      // yellow-green sheen top
+          this.limeGfx.fillCircle(limeX - LR * 0.25, limeY - LR * 0.25, LR * 0.5);
+          
+          // Lime skin dimples (pores)
+          this.limeGfx.fillStyle(0x1e5c1e, 0.4);
+          for(let i = 0; i < 12; i++) {
+             const dx = Math.cos(i * 137.5) * LR * 0.6;
+             const dy = Math.sin(i * 137.5) * LR * 0.6;
+             this.limeGfx.fillCircle(limeX + dx, limeY + dy, 1.5);
+          }
+
+          // Specular glossy reflection
+          this.limeGfx.fillStyle(0xffffff, 0.6);
+          this.limeGfx.fillCircle(limeX - LR * 0.35, limeY - LR * 0.35, LR * 0.15);
+          this.limeGfx.fillCircle(limeX - LR * 0.45, limeY - LR * 0.25, LR * 0.06);
+
           // Stem
           this.limeGfx.fillStyle(0x2d6a2d, 1);
           this.limeGfx.fillCircle(limeX + LR * 0.65, limeY - LR * 0.65, LR * 0.16);
