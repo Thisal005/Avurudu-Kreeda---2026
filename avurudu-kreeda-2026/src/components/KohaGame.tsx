@@ -19,18 +19,26 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
       private pointsText!: Phaser.GameObjects.Text;
       private streakText!: Phaser.GameObjects.Text;
       private birds: Phaser.GameObjects.Image[] = [];
-      private birdData: { isKoha: boolean; baseY: number; idleTween?: Phaser.Tweens.Tween }[] = [];
+      private birdData: { isKoha: boolean; baseY: number; idleTween?: Phaser.Tweens.Tween; isSwapping?: boolean }[] = [];
+      private sky!: Phaser.GameObjects.Graphics;
+      private parallaxClouds: Phaser.GameObjects.Ellipse[] = [];
+      private wireGraphics!: Phaser.GameObjects.Graphics;
 
       private currentRound = 1;
       private currentPoints = 0;
       private streak = 0;
 
       private roundTimer!: Phaser.Time.TimerEvent;
+      private swapTimer?: Phaser.Time.TimerEvent;
+      private expressionTimer?: Phaser.Time.TimerEvent;
       private timeLeft = 15;
 
       private isRoundActive = false;
       private kohaIndex = -1;
       private positions: { x: number; y: number }[] = [];
+      
+      private wireY = 0;
+      private wireSag = 2;
 
       // Crow texture keys (randomized per slot)
       private readonly CROW_KEYS = ['crow1', 'crow2', 'crow3'];
@@ -59,13 +67,18 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
 
       create() {
         const { width, height } = this.scale;
+        this.wireY = height * 0.62;
 
         this.cameras.main.setBackgroundColor('#FFFFFF');
 
         /* ── Sky gradient overlay ── */
-        const sky = this.add.graphics();
-        sky.fillGradientStyle(0xe8f4ff, 0xe8f4ff, 0xffffff, 0xffffff, 1);
-        sky.fillRect(0, 0, width, height * 0.75);
+        this.sky = this.add.graphics();
+        
+        // Clouds
+        for(let i=0; i<6; i++) {
+            const cloud = this.add.ellipse(Phaser.Math.Between(0, width), Phaser.Math.Between(height*0.05, height*0.45), Phaser.Math.Between(60, 140), Phaser.Math.Between(20, 40), 0xffffff, 0.6);
+            this.parallaxClouds.push(cloud);
+        }
 
         /* ── Ground strip ── */
         const ground = this.add.graphics();
@@ -73,28 +86,24 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
         ground.fillRect(0, height * 0.85, width, height * 0.15);
 
         /* ── Wire & poles ── */
-        const wireY = height * 0.62;
         const gfx = this.add.graphics();
 
         // Poles
         gfx.fillStyle(0x4a3728);
-        gfx.fillRect(width * 0.06 - 6, wireY, 12, height - wireY);      // left
-        gfx.fillRect(width * 0.94 - 6, wireY, 12, height - wireY);      // right
+        gfx.fillRect(width * 0.06 - 6, this.wireY, 12, height - this.wireY);      // left
+        gfx.fillRect(width * 0.94 - 6, this.wireY, 12, height - this.wireY);      // right
         // Insulator caps
         gfx.fillStyle(0x888888);
-        gfx.fillCircle(width * 0.06, wireY, 9);
-        gfx.fillCircle(width * 0.94, wireY, 9);
-        // Wire (two parallel lines for depth)
-        gfx.lineStyle(3, 0x222222, 1);
-        gfx.beginPath();
-        gfx.moveTo(width * 0.06, wireY - 2);
-        gfx.lineTo(width * 0.94, wireY - 2);
-        gfx.strokePath();
-        gfx.lineStyle(1, 0x555555, 0.5);
-        gfx.beginPath();
-        gfx.moveTo(width * 0.06, wireY + 2);
-        gfx.lineTo(width * 0.94, wireY + 2);
-        gfx.strokePath();
+        gfx.fillCircle(width * 0.06, this.wireY, 9);
+        gfx.fillCircle(width * 0.94, this.wireY, 9);
+        
+        // Interactive Wire
+        this.wireGraphics = this.add.graphics();
+        this.drawWire();
+
+        // Wire hit area (taps on wire vibrate birds)
+        const wireHitZone = this.add.zone(width / 2, this.wireY, width * 0.88, 50).setInteractive();
+        wireHitZone.on('pointerdown', () => this.pluckWire());
 
         /* ── UI: Clean 2-row header ── */
 
@@ -147,24 +156,90 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
           fontStyle: 'bold',
         }).setOrigin(0, 0).setAlpha(0);
 
-        /* ── Positions ── */
-        const totalBirds = 8;
-        const usableWidth = width * 0.86;
-        const spacing = usableWidth / (totalBirds - 1);
-        const startX = width * 0.07;
-        for (let i = 0; i < totalBirds; i++) {
-          this.positions.push({ x: startX + i * spacing, y: wireY });
-        }
-
         this.startRound();
+      }
+
+      updateSky() {
+         const { width, height } = this.scale;
+         this.sky.clear();
+         if (this.currentRound <= 2) {
+             // Morning blue
+             this.sky.fillGradientStyle(0x87CEEB, 0x87CEEB, 0xe8f4ff, 0xe8f4ff, 1);
+         } else if (this.currentRound <= 4) {
+             // Golden hour
+             this.sky.fillGradientStyle(0xFF7E5F, 0xFF7E5F, 0xFEB47B, 0xFEB47B, 1);
+         } else {
+             // Dusk
+             this.sky.fillGradientStyle(0x2C3E50, 0x2C3E50, 0xFD746C, 0xFD746C, 1);
+         }
+         this.sky.fillRect(0, 0, width, height * 0.75);
+         // Tint clouds based on time
+         const cloudTint = this.currentRound <= 2 ? 0xffffff : (this.currentRound <= 4 ? 0xffddcc : 0xaa8899);
+         this.parallaxClouds.forEach(c => c.setFillStyle(cloudTint, 0.6));
+      }
+
+      drawWire() {
+         const { width } = this.scale;
+         this.wireGraphics.clear();
+         this.wireGraphics.lineStyle(3, 0x222222, 1);
+         this.wireGraphics.beginPath();
+         this.wireGraphics.moveTo(width * 0.06, this.wireY - 2);
+         this.wireGraphics.lineTo(width / 2, this.wireY - 2 + this.wireSag);
+         this.wireGraphics.lineTo(width * 0.94, this.wireY - 2);
+         this.wireGraphics.strokePath();
+         this.wireGraphics.lineStyle(1, 0x555555, 0.5);
+         this.wireGraphics.beginPath();
+         this.wireGraphics.moveTo(width * 0.06, this.wireY + 2);
+         this.wireGraphics.lineTo(width / 2, this.wireY + 2 + this.wireSag);
+         this.wireGraphics.lineTo(width * 0.94, this.wireY + 2);
+         this.wireGraphics.strokePath();
+      }
+
+      pluckWire() {
+         if (!this.isRoundActive) return;
+         this.tweens.add({
+             targets: this,
+             wireSag: { from: 40, to: 2 },
+             duration: 600,
+             ease: 'Elastic.easeOut',
+             onUpdate: () => {
+                 this.drawWire();
+                 this.birds.forEach((b, i) => {
+                     if (!this.birdData[i].isSwapping) {
+                         b.y = this.birdData[i].baseY + this.wireSag - 2 - Phaser.Math.Between(0, 3);
+                     }
+                 });
+             }
+         });
+      }
+
+      update(time: number, delta: number) {
+         // Scroll clouds
+         const { width } = this.scale;
+         this.parallaxClouds.forEach(c => {
+             c.x += 0.02 * delta;
+             if (c.x > width + 100) c.x = -100;
+         });
       }
 
       /* ─────────────────── ROUND LIFECYCLE ─────────────────── */
 
       startRound() {
+        this.updateSky();
         this.isRoundActive = false;
-        this.timeLeft = 15;
-        this.timerText.setText('15');
+        // dynamic difficulty
+        const difficultyMap = [
+            { birds: 5, time: 15 },
+            { birds: 6, time: 14 },
+            { birds: 7, time: 12 },
+            { birds: 8, time: 11 },
+            { birds: 9, time: 10 }
+        ];
+        const diff = difficultyMap[Math.min(this.currentRound - 1, 4)];
+        this.timeLeft = diff.time;
+        const totalBirds = diff.birds;
+
+        this.timerText.setText(this.timeLeft.toString());
         this.timerText.setColor('#333333');
         this.roundText.setText(`Round ${this.currentRound} / 5`);
 
@@ -173,12 +248,21 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
         this.birds = [];
         this.birdData = [];
 
+        this.positions = [];
+        const { width } = this.scale;
+        const usableWidth = width * 0.86;
+        const spacing = usableWidth / (totalBirds - 1);
+        const startX = width * 0.07;
+        for (let i = 0; i < totalBirds; i++) {
+          this.positions.push({ x: startX + i * spacing, y: this.wireY });
+        }
+
         // Shuffle positions for this round
         Phaser.Utils.Array.Shuffle(this.positions);
 
-        this.kohaIndex = Phaser.Math.Between(0, 7);
+        this.kohaIndex = Phaser.Math.Between(0, totalBirds - 1);
 
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < totalBirds; i++) {
           const isKoha = i === this.kohaIndex;
           const pos = this.positions[i];
 
@@ -259,7 +343,99 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
             callbackScope: this,
             loop: true
           });
+          
+          if (this.currentRound > 1) {
+             this.swapTimer = this.time.addEvent({
+                 delay: 2600 - this.currentRound * 300,
+                 callback: this.executeSwap,
+                 callbackScope: this,
+                 loop: true
+             });
+          }
+          
+          this.expressionTimer = this.time.addEvent({
+             delay: 4500,
+             callback: this.executeMicroExpression,
+             callbackScope: this,
+             loop: true
+          });
         });
+      }
+
+      executeMicroExpression() {
+         if (!this.isRoundActive || this.kohaIndex === -1) return;
+         const kohaBird = this.birds[this.kohaIndex];
+         if (this.birdData[this.kohaIndex]?.isSwapping) return;
+         
+         // Subtle tell: Quick red tint or scale jump
+         this.tweens.add({
+             targets: kohaBird,
+             scaleX: kohaBird.scaleX * 1.15,
+             scaleY: kohaBird.scaleY * 0.85,
+             tint: 0xffaaaa,
+             duration: 150,
+             yoyo: true,
+             onComplete: () => kohaBird.clearTint()
+         });
+      }
+
+      executeSwap() {
+         if (!this.isRoundActive) return;
+         const available = this.birds.map((b, i) => i).filter(i => !this.birdData[i].isSwapping);
+         if (available.length < 2) return;
+         
+         Phaser.Utils.Array.Shuffle(available);
+         const i1 = available[0];
+         const i2 = available[1];
+         
+         const b1 = this.birds[i1];
+         const b2 = this.birds[i2];
+         
+         this.birdData[i1].isSwapping = true;
+         this.birdData[i2].isSwapping = true;
+         
+         const targetX1 = b2.x;
+         const targetX2 = b1.x;
+         const targetBaseY1 = this.birdData[i2].baseY;
+         const targetBaseY2 = this.birdData[i1].baseY;
+         
+         this.tweens.add({
+             targets: b1,
+             x: targetX1,
+             y: b1.y - 65,
+             duration: 380,
+             yoyo: true,
+             ease: 'Sine.easeOut',
+             onComplete: () => { 
+                b1.x = targetX1; 
+                this.birdData[i1].isSwapping = false; 
+                this.birdData[i1].baseY = targetBaseY1;
+             }
+         });
+         this.tweens.add({
+             targets: b2,
+             x: targetX2,
+             y: b2.y - 45, // lower arc
+             duration: 380,
+             yoyo: true,
+             ease: 'Sine.easeOut',
+             onComplete: () => { 
+                b2.x = targetX2; 
+                this.birdData[i2].isSwapping = false; 
+                this.birdData[i2].baseY = targetBaseY2;
+             }
+         });
+         
+         // Logical array swap
+         this.birds[i1] = b2;
+         this.birds[i2] = b1;
+         
+         const d1 = this.birdData[i1];
+         this.birdData[i1] = this.birdData[i2];
+         this.birdData[i2] = d1;
+         
+         if (i1 === this.kohaIndex) this.kohaIndex = i2;
+         else if (i2 === this.kohaIndex) this.kohaIndex = i1;
       }
 
       startIdleBob(bird: Phaser.GameObjects.Image, index: number) {
@@ -308,6 +484,8 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
       ) {
         this.isRoundActive = false;
         if (this.roundTimer) this.roundTimer.remove();
+        if (this.swapTimer) this.swapTimer.remove();
+        if (this.expressionTimer) this.expressionTimer.remove();
 
         const { width, height } = this.scale;
 
