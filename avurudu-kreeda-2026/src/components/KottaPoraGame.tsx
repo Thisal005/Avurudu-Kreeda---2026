@@ -30,6 +30,8 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
       private roundActive = false;
       private timeLeft = 60;
       private roundTimerEvent!: Phaser.Time.TimerEvent;
+      private isChampionMode = false;
+      private trashTalkEvent?: Phaser.Time.TimerEvent;
 
       // ── Swing & Charge state ──────────────────────────────────
       private playerSwinging = false;
@@ -92,8 +94,10 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         super("KottaPoraScene");
       }
 
-      // ─── preload: nothing to load (pure graphics) ───────────
-      preload() {}
+      // ─── preload ───────────
+      preload() {
+        this.load.audio("challenge_sound", "/kottapora/jc.mp3");
+      }
 
       // ─── create ─────────────────────────────────────────────
       create() {
@@ -164,7 +168,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         if (this.isCharging) {
           this.chargeValue = Phaser.Math.Clamp(this.chargeValue + dt * 1.5, 0, 1); // Full charge in ~0.66s
           this.updateChargeVisuals();
-          
+
           // Small continuous wobble while charging
           this.playerContainer.angle += (Math.random() - 0.5) * 4 * this.chargeValue;
         }
@@ -223,17 +227,17 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         for (let i = 0; i < 18; i++) {
           const crowdGfx = this.add.graphics();
           crowdGfx.fillStyle(0xe8d4b8, 0.5);
-          
+
           const cx = (i / 17) * width;
           const baseY = this.poleY + 80 + Math.sin(i * 1.7) * 15;
           const r = 14 + Math.sin(i * 2.3) * 5;
-          
+
           crowdGfx.fillCircle(0, 0, r);
           crowdGfx.fillRect(-6, 0, 12, 30);
-          
+
           crowdGfx.x = cx;
           crowdGfx.y = baseY;
-          
+
           this.crowdMembers.push({ gfx: crowdGfx, baseX: cx, baseY, offset: Math.random() * Math.PI * 2 });
         }
 
@@ -487,9 +491,9 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
 
         // Label
         this.add.text(width / 2, 105, "HYPE", {
-            fontSize: "10px",
-            fontFamily: '"Arial Black", Impact, sans-serif',
-            color: "#666666",
+          fontSize: "10px",
+          fontFamily: '"Arial Black", Impact, sans-serif',
+          color: "#666666",
         }).setOrigin(0.5);
 
         // Hype Meter Background
@@ -701,13 +705,13 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
             this.tweens.add({ targets: this.swingBtnBg, scale: 0.9, duration: 100 });
           }
         });
-        
+
         const releaseCharge = () => {
           if (this.isCharging) {
-             this.isCharging = false;
-             this.tweens.killTweensOf(this.swingBtnBg);
-             this.swingBtnBg.setScale(1);
-             this.playerSwing(this.chargeValue);
+            this.isCharging = false;
+            this.tweens.killTweensOf(this.swingBtnBg);
+            this.swingBtnBg.setScale(1);
+            this.playerSwing(this.chargeValue);
           }
         };
 
@@ -743,7 +747,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           .text(
             width / 2,
             height * 0.52,
-            this.currentRound === 1 ? "Easy AI" : "Medium AI – Watch out! 😤",
+            this.isChampionMode ? "Champion AI - Extreme! 💀" : "Easy AI",
             {
               fontFamily: "system-ui, sans-serif",
               fontSize: "18px",
@@ -810,13 +814,13 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.playerCooldown = 0;
         this.aiCooldown = 0;
         this.timeLeft = 60;
-        
+
         this.isCharging = false;
         this.chargeValue = 0;
         this.isHypeSwing = false;
         this.playerHype = 0;
         if (this.chargeGfx) this.chargeGfx.clear();
-        
+
         this.timerText.setText("60");
         this.timerText.setColor("#da291c");
         this.roundText.setText(`Round ${this.currentRound} of 3`);
@@ -841,7 +845,70 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           loop: true,
         });
 
+        // Champion trash talk
+        if (this.trashTalkEvent) this.trashTalkEvent.remove();
+        if (this.isChampionMode) {
+          this.trashTalkEvent = this.time.addEvent({
+             delay: 4000,
+             callback: this.triggerTrashTalk,
+             callbackScope: this,
+             loop: true
+          });
+        }
+
         this.roundActive = true;
+      }
+
+      triggerTrashTalk() {
+        if (!this.roundActive || this.aiFallen) return;
+        if (Math.random() > 0.4) return; // 40% chance per 4 secs
+        const phrases = [
+          "You think you can beat me?",
+          "This pole is mine!",
+          "Too weak!",
+          "Avurudu Champion never loses!",
+          "Give up!"
+        ];
+        const phrase = phrases[Phaser.Math.Between(0, phrases.length - 1)];
+        
+        const bubble = this.add.container(this.aiContainer.x, this.aiContainer.y - 120).setDepth(35);
+        
+        const bg = this.add.graphics();
+        bg.fillStyle(0xffffff, 0.95);
+        bg.lineStyle(2, 0x000000, 1);
+        bg.fillRoundedRect(-65, -25, 130, 50, 8);
+        bg.strokeRoundedRect(-65, -25, 130, 50, 8);
+        
+        // Triangle pointer
+        bg.fillStyle(0xffffff, 0.95);
+        bg.fillTriangle(-10, 24, 10, 24, 0, 36);
+        bg.lineStyle(2, 0x000000, 1);
+        bg.beginPath();
+        bg.moveTo(-10, 24);
+        bg.lineTo(0, 36);
+        bg.lineTo(10, 24);
+        bg.strokePath();
+        
+        const text = this.add.text(0, 0, phrase, {
+           fontFamily: "system-ui, sans-serif",
+           fontSize: "12px",
+           color: "#000000",
+           align: "center",
+           wordWrap: { width: 120 },
+           fontStyle: "bold"
+        }).setOrigin(0.5);
+        
+        bubble.add(bg);
+        bubble.add(text);
+        
+        this.tweens.add({
+           targets: bubble,
+           y: bubble.y - 20,
+           alpha: {from: 1, to: 0},
+           duration: 2500,
+           delay: 1000,
+           onComplete: () => bubble.destroy()
+        });
       }
 
       tickTimer() {
@@ -901,15 +968,17 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
 
       // ── AI Logic ─────────────────────────────────────────────
       runAI(delta: number) {
-        const isEasy = this.currentRound === 1;
-        const balanceThreshold = isEasy ? 55 : 35;
-        const attackRange = isEasy ? 30 : 45;
-        const attackChance = isEasy ? 0.004 : 0.009; // per frame
+        const isEasy = !this.isChampionMode; // All normal rounds use the same easy difficulty
+        
+        const balanceThreshold = this.isChampionMode ? 15 : (isEasy ? 65 : 45);
+        const attackRange = this.isChampionMode ? 55 : (isEasy ? 25 : 35);
+        const attackChance = this.isChampionMode ? 0.015 : (isEasy ? 0.002 : 0.006); // per frame
 
         // Balance self
         if (Math.abs(this.aiAngle) > balanceThreshold) {
           const correction = -Math.sign(this.aiAngle) * 8;
-          this.aiAngle += correction * (delta / 1000) * (isEasy ? 1 : 1.8);
+          const champMult = this.isChampionMode ? 2.8 : 1;
+          this.aiAngle += correction * (delta / 1000) * (isEasy ? 0.7 : 1.3) * champMult;
         }
 
         // Attack
@@ -920,8 +989,8 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           (distToPlayer < attackRange || Math.random() < attackChance)
         ) {
           this.aiSwinging = true;
-          this.aiCooldown = isEasy ? this.SWING_COOLDOWN * 1.6 : this.SWING_COOLDOWN;
-          const aiCharge = Math.random() * 0.7 + 0.3;
+          this.aiCooldown = this.isChampionMode ? this.SWING_COOLDOWN * 0.7 : (isEasy ? this.SWING_COOLDOWN * 2.2 : this.SWING_COOLDOWN * 1.5);
+          const aiCharge = this.isChampionMode ? Math.random() * 0.5 + 0.5 : Math.random() * 0.5 + 0.2;
           this.animateSwing("ai", aiCharge, false, () => {
             this.aiSwinging = false;
             this.checkHit("ai", aiCharge, false);
@@ -1002,20 +1071,20 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
 
         // Whoosh text
         const { height } = this.scale;
-        
+
         if (isHype) {
-           // Hype visual FX on swing
-           const hypeRing = this.add.circle(container.x, container.y - 20, 20, 0x2ecc71, 0.6).setDepth(20);
-           this.tweens.add({
-              targets: hypeRing,
-              scale: 6,
-              alpha: 0,
-              duration: 300,
-              ease: "Power3",
-              onComplete: () => hypeRing.destroy()
-           });
+          // Hype visual FX on swing
+          const hypeRing = this.add.circle(container.x, container.y - 20, 20, 0x2ecc71, 0.6).setDepth(20);
+          this.tweens.add({
+            targets: hypeRing,
+            scale: 6,
+            alpha: 0,
+            duration: 300,
+            ease: "Power3",
+            onComplete: () => hypeRing.destroy()
+          });
         }
-        
+
         this.floatText(
           container.x + dir * 50,
           container.y - 30,
@@ -1047,7 +1116,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         if (dist < hitRange) {
           // Apply force to defender
           const pushDir = Math.sign(defenderX - attackerX);
-          
+
           let forceFactor = 1 + (charge * 1.5);
           if (isHype) forceFactor = 3.5;
           const force = (18 + (this.currentRound - 1) * 4) * forceFactor;
@@ -1063,7 +1132,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
             this.playerAngle = Phaser.Math.Clamp(this.playerAngle, -100, 100);
             this.hitFeedback(this.playerContainer);
           }
-          
+
           this.impactTremor = force * 0.4;
 
           // Screen shake
@@ -1074,11 +1143,11 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
             attacker === "player"
               ? this.aiContainer.x - 20
               : this.playerContainer.x + 20;
-              
+
           if (forceFactor >= 2.0) {
-              this.spawnPOW(hitX, this.poleY - 30);
+            this.spawnPOW(hitX, this.poleY - 30);
           } else {
-              this.spawnHitSparks(hitX, this.poleY - 20);
+            this.spawnHitSparks(hitX, this.poleY - 20);
           }
 
           // Float text
@@ -1145,48 +1214,48 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         fill.fillStyle(0x333333, 0.6);
         fill.fillRect(cx - 1, meterY, 2, meterH);
       }
-      
+
       updateHypeMeter() {
-         if (!this.hypeFill) return;
-         const { width } = this.scale;
-         const hypeW = 80;
-         const hypeH = 8;
-         const cx = width / 2;
-         const cy = 115;
-         
-         this.hypeFill.clear();
-         if (this.playerHype >= 100) {
-            this.hypeFill.fillStyle(0x2ecc71, 1); // bright green
-            this.hypeFill.fillRoundedRect(cx - hypeW / 2, cy, hypeW, hypeH, 4);
-            // Flash effect done via update generally, but here it's static
-         } else if (this.playerHype > 0) {
-            this.hypeFill.fillStyle(0xf58220, 1); // orange
-            this.hypeFill.fillRoundedRect(cx - hypeW / 2, cy, (this.playerHype / 100) * hypeW, hypeH, 4);
-         }
+        if (!this.hypeFill) return;
+        const { width } = this.scale;
+        const hypeW = 80;
+        const hypeH = 8;
+        const cx = width / 2;
+        const cy = 115;
+
+        this.hypeFill.clear();
+        if (this.playerHype >= 100) {
+          this.hypeFill.fillStyle(0x2ecc71, 1); // bright green
+          this.hypeFill.fillRoundedRect(cx - hypeW / 2, cy, hypeW, hypeH, 4);
+          // Flash effect done via update generally, but here it's static
+        } else if (this.playerHype > 0) {
+          this.hypeFill.fillStyle(0xf58220, 1); // orange
+          this.hypeFill.fillRoundedRect(cx - hypeW / 2, cy, (this.playerHype / 100) * hypeW, hypeH, 4);
+        }
       }
-      
+
       updateChargeVisuals() {
-          if (!this.chargeGfx) return;
-          this.chargeGfx.clear();
-          const cx = this.playerContainer.x;
-          const cy = this.playerContainer.y - 70;
-          const w = 40;
-          this.chargeGfx.fillStyle(0x000000, 0.2);
-          this.chargeGfx.fillRoundedRect(cx - w/2, cy, w, 6, 2);
-          
-          this.chargeGfx.fillStyle(0xfcd116, 1);
-          this.chargeGfx.fillRoundedRect(cx - w/2, cy, w * this.chargeValue, 6, 2);
+        if (!this.chargeGfx) return;
+        this.chargeGfx.clear();
+        const cx = this.playerContainer.x;
+        const cy = this.playerContainer.y - 70;
+        const w = 40;
+        this.chargeGfx.fillStyle(0x000000, 0.2);
+        this.chargeGfx.fillRoundedRect(cx - w / 2, cy, w, 6, 2);
+
+        this.chargeGfx.fillStyle(0xfcd116, 1);
+        this.chargeGfx.fillRoundedRect(cx - w / 2, cy, w * this.chargeValue, 6, 2);
       }
-      
+
       updateCrowd(time: number) {
-          for (let i = 0; i < this.crowdMembers.length; i++) {
-             const m = this.crowdMembers[i];
-             // Base wobble
-             const jumpOffset = Math.sin((time * 0.003) + m.offset) * 3;
-             // Tremor jump (if impactTremor is high, they jump)
-             const tremorJump = this.impactTremor > 5 ? -this.impactTremor * 0.8 : 0;
-             m.gfx.y = m.baseY + jumpOffset + tremorJump;
-          }
+        for (let i = 0; i < this.crowdMembers.length; i++) {
+          const m = this.crowdMembers[i];
+          // Base wobble
+          const jumpOffset = Math.sin((time * 0.003) + m.offset) * 3;
+          // Tremor jump (if impactTremor is high, they jump)
+          const tremorJump = this.impactTremor > 5 ? -this.impactTremor * 0.8 : 0;
+          m.gfx.y = m.baseY + jumpOffset + tremorJump;
+        }
       }
 
       applyPoleWobble(_who: "player" | "ai") {
@@ -1195,6 +1264,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
 
       // ── Round / match end logic ───────────────────────────────
       triggerFall(who: "player" | "ai") {
+        if (this.trashTalkEvent) this.trashTalkEvent.remove();
         if (who === "player") {
           if (this.playerFallen) return;
           this.playerFallen = true;
@@ -1279,7 +1349,7 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         if (playerWon) this.spawnConfetti();
 
         const titleText = playerWon
-          ? "🏆 Kotta Pora\nChampion!"
+          ? (this.isChampionMode ? "👑 You Defeated\nThe World Champion!" : "🏆 Kotta Pora\nChampion!")
           : "😢 Better luck\nnext time!";
         const titleColor = playerWon ? "#fcd116" : "#ff6b6b";
 
@@ -1310,15 +1380,19 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
           score = 1000;
         }
 
+        const subText = playerWon
+          ? (this.isChampionMode 
+              ? `Avurudu Legend! 🎊\n+300 Bonus Points!` 
+              : `Subha Avurudu! 🎊\n+${score} Kreeda Points!`)
+          : (this.playerWins === 1
+              ? `You won 1 round!\n+${score} Kreeda Points!`
+              : `No points this time!\nBetter luck next match!`);
+
         const sub = this.add
           .text(
             width / 2,
             height * 0.52,
-            playerWon
-              ? `Subha Avurudu! 🎊\n+${score} Kreeda Points!`
-              : this.playerWins === 1
-                ? `You won 1 round!\n+${score} Kreeda Points!`
-                : `No points this time!\nBetter luck next match!`,
+            subText,
             {
               fontFamily: "system-ui, sans-serif",
               fontSize: "20px",
@@ -1333,13 +1407,15 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.tweens.add({ targets: sub, alpha: 1, duration: 400, delay: 700 });
 
         // Score badge
+        const badgeColor = this.isChampionMode ? 0xcc0000 : 0xf58220;
+        const displayScore = (this.isChampionMode && playerWon) ? 300 : score;
         const badge = this.add
-          .rectangle(width / 2, height * 0.67, 200, 44, 0xf58220, 1)
+          .rectangle(width / 2, height * 0.67, 200, 44, badgeColor, 1)
           .setOrigin(0.5)
           .setDepth(51)
           .setAlpha(0);
         const badgeText = this.add
-          .text(width / 2, height * 0.67, `🏅 +${score} KP`, {
+          .text(width / 2, height * 0.67, `🏅 +${displayScore} KP`, {
             fontFamily: '"Arial Black", Impact, sans-serif',
             fontSize: "22px",
             color: "#ffffff",
@@ -1361,10 +1437,230 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
             alpha: 0,
             duration: 500,
             onComplete: () => {
-              onMatchEnd(playerWon, score);
+              overlay.destroy();
+              title.destroy();
+              sub.destroy();
+              badge.destroy();
+              badgeText.destroy();
+
+              if (playerWon && !this.isChampionMode) {
+                this.showChampionChallenge(score);
+              } else {
+                let finalScore = score;
+                if (this.isChampionMode && playerWon) finalScore += 300;
+                // Even if lost champ mode, they won regular match initially. Passes true if effectively won match.
+                const effectivelyWon = this.isChampionMode || playerWon;
+                onMatchEnd(effectivelyWon, finalScore);
+              }
             },
           });
         });
+      }
+
+      showChampionChallenge(prevScore: number) {
+        const { width, height } = this.scale;
+        
+        const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.8).setDepth(60);
+        
+        const btnBg = this.add.graphics().setDepth(61);
+        btnBg.fillStyle(0xda291c, 1);
+        const btnW = 280, btnH = 65;
+        const btnX = width/2 - btnW/2;
+        const btnY = height/2 - btnH/2 - 20;
+        btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
+        
+        const btnText = this.add.text(width/2, btnY + btnH/2, "ACCEPT CHAMPION\nCHALLENGE", {
+          fontFamily: '"Arial Black", Impact, sans-serif',
+          fontSize: "18px",
+          color: "#ffffff",
+          align: "center",
+          stroke: "#000000",
+          strokeThickness: 3,
+        }).setOrigin(0.5).setDepth(62);
+        
+        // Skip for now button
+        const skipText = this.add.text(width/2, height/2 + 50, "No thanks, claim points", {
+           fontFamily: "system-ui, sans-serif",
+           fontSize: "16px",
+           color: "#cccccc",
+           align: "center",
+           fontStyle: "underline"
+        }).setOrigin(0.5).setDepth(62).setInteractive();
+        
+        skipText.on('pointerdown', () => {
+           onMatchEnd(true, prevScore);
+        });
+
+        // Interactive Area
+        const btnArea = this.add.zone(width/2, btnY + btnH/2, btnW, btnH).setOrigin(0.5).setInteractive().setDepth(63);
+        
+        // Pulse effect
+        this.tweens.add({
+          targets: [btnBg, btnText],
+          alpha: {from: 0.8, to: 1},
+          scaleX: 1.05,
+          scaleY: 1.05,
+          yoyo: true,
+          repeat: -1,
+          duration: 600,
+        });
+        
+        btnArea.once('pointerdown', () => {
+          this.tweens.killTweensOf([btnBg, btnText]);
+          btnBg.destroy();
+          btnText.destroy();
+          skipText.destroy();
+          btnArea.destroy();
+          overlay.destroy(); // Fix: Destroy the dark background overlay!
+          
+          this.playCinematicEntrance();
+        });
+      }
+
+      playCinematicEntrance() {
+        const { width, height } = this.scale;
+        
+        if (this.cache.audio.exists("challenge_sound")) {
+           this.sound.play("challenge_sound", { volume: 0.8 });
+        }
+        
+        // Flash white
+        const flash = this.add.rectangle(width/2, height/2, width, height, 0xffffff, 1).setDepth(70);
+        this.tweens.add({ targets: flash, alpha: 0, duration: 800, onComplete: () => flash.destroy() });
+        
+        // Screen Shake
+        this.cameras.main.shake(1500, 0.015);
+        
+        // Darkened bg
+        const darkBg = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.75).setDepth(60);
+        
+        // WWE Entrance Text
+        const nameText = this.add.text(width/2, height * 0.4, "Jhon\nCena", {
+          fontFamily: '"Arial Black", Impact, sans-serif',
+          fontSize: "48px",
+          color: "#cc0000",
+          align: "center",
+          stroke: "#ffffff",
+          strokeThickness: 5,
+          shadow: { offsetX: 0, offsetY: 0, color: '#cc0000', blur: 20, fill: true }
+        }).setOrigin(0.5).setDepth(65).setScale(0);
+
+        const subText = this.add.text(width/2, height * 0.6, "The Undisputed World Kottapora Champion", {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: "15px",
+          color: "#fcd116",
+          align: "center",
+          fontStyle: "italic",
+          stroke: "#000000",
+          strokeThickness: 3,
+        }).setOrigin(0.5).setDepth(65).setAlpha(0);
+
+        this.tweens.add({
+          targets: nameText,
+          scale: 1,
+          duration: 500,
+          ease: "Back.easeOut",
+        });
+
+        this.tweens.add({
+          targets: subText,
+          alpha: 1,
+          duration: 800,
+          delay: 400,
+        });
+
+        // After cinematic, start the champion match
+        this.time.delayedCall(4000, () => {
+          this.tweens.add({
+            targets: [nameText, subText, darkBg],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+               nameText.destroy();
+               subText.destroy();
+               darkBg.destroy();
+               this.startChampionMode();
+            }
+          });
+        });
+      }
+
+      startChampionMode() {
+        this.isChampionMode = true;
+        this.playerWins = 0;
+        this.aiWins = 0;
+        this.currentRound = 1;
+        
+        // Rebuild AI with Ranjan visuals
+        if (this.aiContainer) this.aiContainer.destroy();
+        const { width } = this.scale;
+        
+        this.aiContainer = this.add.container(width * 0.70, this.poleY);
+        this.aiPillow = this.drawChampionCharacter(this.aiContainer);
+        
+        this.updateBalanceMeter("ai");
+        this.updateWinsDisplay();
+        
+        this.aiFallen = false;
+        this.playerFallen = false;
+        
+        this.showRoundIntro();
+      }
+
+      drawChampionCharacter(container: Phaser.GameObjects.Container): Phaser.GameObjects.Graphics {
+        const g = this.add.graphics();
+        const dir = -1;
+
+        // Dhoti (lower body)
+        g.fillStyle(0xcc0000, 1);
+        g.fillRoundedRect(-16, -5, 32, 22, 4);
+
+        // Body (shirt) - Muscular
+        g.fillStyle(0x111111, 1);
+        g.fillRoundedRect(-14, -38, 28, 38, 5);
+
+        // Gold Champion Belt
+        g.fillStyle(0xfcd116, 1);
+        g.fillRoundedRect(-16, -10, 32, 8, 2);
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(0, -6, 4);
+
+        // Hand behind back
+        g.fillStyle(0xdba15e, 1);
+        g.fillCircle(-dir * 14, -22, 6);
+
+        // Head (Bigger)
+        g.fillStyle(0xdba15e, 1);
+        g.fillCircle(0, -54, 16);
+
+        // Angry Eyes
+        g.fillStyle(0x000000, 1);
+        g.lineStyle(2, 0x000000, 1);
+        g.beginPath();
+        g.moveTo(dir * 2 - 4, -62);
+        g.lineTo(dir * 6 + 4, -58);
+        g.strokePath();
+
+        g.fillCircle(dir * 6, -56, 3);
+
+        // Frown
+        g.lineStyle(1.5, 0x000000, 1);
+        g.beginPath();
+        g.arc(dir * 2, -44, 4, Math.PI + 0.3, 2 * Math.PI - 0.3, false);
+        g.strokePath();
+
+        // Champion Headband
+        g.fillStyle(0xcc0000, 1);
+        g.fillRect(-8, -70, 16, 6);
+
+        container.add(g);
+
+        // Pillow arm (reuse normal style but positioned properly)
+        const pillow = this.add.graphics();
+        this.drawPillow(pillow, dir, 0); 
+        container.add(pillow);
+
+        return pillow;
       }
 
       showOverlayMessage(
@@ -1437,52 +1733,52 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
       }
 
       spawnPOW(x: number, y: number) {
-         const g = this.add.graphics().setDepth(20);
-         g.fillStyle(0xfcd116, 1);
-         g.lineStyle(2, 0xda291c, 1);
-         g.beginPath();
-         
-         const pts = 10;
-         for (let i = 0; i < pts * 2; i++) {
-            const rad = (i * Math.PI) / pts;
-            const dist = i % 2 === 0 ? 30 : 15;
-            if (i === 0) g.moveTo(Math.cos(rad) * dist, Math.sin(rad) * dist);
-            else g.lineTo(Math.cos(rad) * dist, Math.sin(rad) * dist);
-         }
-         g.closePath();
-         g.fillPath();
-         g.strokePath();
+        const g = this.add.graphics().setDepth(20);
+        g.fillStyle(0xfcd116, 1);
+        g.lineStyle(2, 0xda291c, 1);
+        g.beginPath();
 
-         g.x = x;
-         g.y = y;
-         g.setScale(0);
+        const pts = 10;
+        for (let i = 0; i < pts * 2; i++) {
+          const rad = (i * Math.PI) / pts;
+          const dist = i % 2 === 0 ? 30 : 15;
+          if (i === 0) g.moveTo(Math.cos(rad) * dist, Math.sin(rad) * dist);
+          else g.lineTo(Math.cos(rad) * dist, Math.sin(rad) * dist);
+        }
+        g.closePath();
+        g.fillPath();
+        g.strokePath();
 
-         const txt = this.add.text(x, y, "POW!", {
-             fontFamily: '"Arial Black", Impact, sans-serif',
-             fontSize: "20px",
-             color: "#da291c",
-             stroke: "#ffffff",
-             strokeThickness: 3
-         }).setOrigin(0.5).setDepth(21).setScale(0);
+        g.x = x;
+        g.y = y;
+        g.setScale(0);
 
-         this.tweens.add({
-             targets: [g, txt],
-             scale: 1,
-             angle: Phaser.Math.Between(-15, 15),
-             duration: 150,
-             ease: "Back.easeOut",
-             onComplete: () => {
-                 this.time.delayedCall(400, () => {
-                     this.tweens.add({
-                         targets: [g, txt],
-                         alpha: 0,
-                         scale: 1.5,
-                         duration: 250,
-                         onComplete: () => { g.destroy(); txt.destroy(); }
-                     });
-                 });
-             }
-         });
+        const txt = this.add.text(x, y, "POW!", {
+          fontFamily: '"Arial Black", Impact, sans-serif',
+          fontSize: "20px",
+          color: "#da291c",
+          stroke: "#ffffff",
+          strokeThickness: 3
+        }).setOrigin(0.5).setDepth(21).setScale(0);
+
+        this.tweens.add({
+          targets: [g, txt],
+          scale: 1,
+          angle: Phaser.Math.Between(-15, 15),
+          duration: 150,
+          ease: "Back.easeOut",
+          onComplete: () => {
+            this.time.delayedCall(400, () => {
+              this.tweens.add({
+                targets: [g, txt],
+                alpha: 0,
+                scale: 1.5,
+                duration: 250,
+                onComplete: () => { g.destroy(); txt.destroy(); }
+              });
+            });
+          }
+        });
       }
 
       spawnHitSparks(x: number, y: number) {
