@@ -56,6 +56,18 @@ export default function GamesHub() {
         </div>
       </div>
 
+      {/* Claim Prize Link if they have played */}
+      {totalPoints > 0 && (
+        <div className="z-10 max-w-sm mx-auto w-full mb-8 px-2 animate-pulse">
+          <Link href="/claim-prize" className="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-full font-black text-lg shadow-[0_0_20px_rgba(16,185,129,0.5)] border-2 border-white hover:scale-105 transition-transform overflow-hidden relative group">
+            <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black"></span>
+            <span className="relative flex items-center justify-center gap-2 drop-shadow-md">
+              🎁 Claim Your Grand Avurudu Prize!
+            </span>
+          </Link>
+        </div>
+      )}
+
       {/* Games Grid */}
       <div className="z-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full pb-20">
         
@@ -164,6 +176,26 @@ export default function GamesHub() {
             </div>
             <button className="mt-2 w-full bg-gradient-to-r from-avurudu-yellow to-avurudu-orange text-black py-3 rounded-full font-black shadow-[0_0_15px_rgba(255,165,0,0.5)] group-hover:scale-105 transition-transform">
               ENTER GROUND
+            </button>
+          </div>
+        </Link>
+
+        {/* Leaderboard */}
+        <Link href="/leaderboard" className="group block relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-3xl blur opacity-40 group-hover:opacity-100 transition duration-200"></div>
+          <div className="relative bg-gradient-to-b from-yellow-50 to-amber-100 rounded-3xl p-6 shadow-xl border-2 border-yellow-400 flex flex-col items-center gap-4 hover:scale-[1.02] transition-transform">
+            <div className="w-24 h-24 bg-yellow-400/20 rounded-full flex items-center justify-center text-5xl relative overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-yellow-400/40 to-transparent animate-pulse rounded-full"></div>
+               🏆
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-amber-900 mb-1 drop-shadow-sm">Leaderboard</h2>
+              <p className="text-sm text-amber-900/80 font-medium whitespace-pre-line">
+                Check your rank among the Top 10 Avurudu Heroes!
+              </p>
+            </div>
+            <button className="mt-2 w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-amber-950 py-3 rounded-full font-black shadow-[0_0_15px_rgba(251,191,36,0.5)] group-hover:scale-105 transition-transform">
+              VIEW RANKINGS
             </button>
           </div>
         </Link>
