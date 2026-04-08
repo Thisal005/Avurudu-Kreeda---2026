@@ -40,6 +40,10 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
       private wireY = 0;
       private wireSag = 2;
 
+      // Audio
+      private bgMusic?: Phaser.Sound.BaseSound;
+      private currentBgTrack = 'bg1';
+
       // Crow texture keys (randomized per slot)
       private readonly CROW_KEYS = ['crow1', 'crow2', 'crow3'];
 
@@ -56,6 +60,14 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
         this.load.image('crowFly', '/koha/crow.png');  // wrong click – flies
         this.load.image('kohaReveal', '/koha/real.png'); // correct click – reveal 4s
         this.load.image('kohaFly', '/koha/koha.png');   // correct click – flies away
+
+        // Audio
+        this.load.audio('intro', '/koha/intro.mp3');
+        this.load.audio('win', '/koha/win.mp3');
+        this.load.audio('kohaCall', '/koha/koha.mp3');
+        this.load.audio('wrong', '/koha/wrong.mp3');
+        this.load.audio('bg1', '/koha/bg1.mp3');
+        this.load.audio('bg2', '/koha/bg2.mp3');
 
         // Particle dot
         const g = this.add.graphics();
@@ -156,7 +168,36 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
           fontStyle: 'bold',
         }).setOrigin(0, 0).setAlpha(0);
 
+        // Play intro sound, then start background music
+        const intro = this.sound.add('intro', { volume: 0.9 });
+        intro.play();
+        intro.once('complete', () => {
+          this.playNextBgTrack();
+        });
+
         this.startRound();
+      }
+
+      playNextBgTrack() {
+        if (this.bgMusic) {
+          this.bgMusic.destroy();
+        }
+        // Alternate between bg1 and bg2
+        this.currentBgTrack = this.currentBgTrack === 'bg1' ? 'bg2' : 'bg1';
+        this.bgMusic = this.sound.add(this.currentBgTrack, { volume: 0.35 });
+        this.bgMusic.play();
+        this.bgMusic.once('complete', () => {
+          this.playNextBgTrack();
+        });
+      }
+
+      stopAllAudio() {
+        if (this.bgMusic) {
+          this.bgMusic.stop();
+          this.bgMusic.destroy();
+          this.bgMusic = undefined;
+        }
+        this.sound.stopAll();
       }
 
       updateSky() {
@@ -490,6 +531,8 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
         const { width, height } = this.scale;
 
         if (isWin && selectedBird) {
+          this.sound.play('win', { volume: 1.0 });
+          this.sound.play('kohaCall', { volume: 1.0, delay: 0.3 });
           /* ═══ WIN FLOW ═══ */
           this.streak++;
           const roundPoints = 1000;
@@ -524,6 +567,7 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
 
         } else {
           /* ═══ LOSE FLOW ═══ */
+          this.sound.play('wrong', { volume: 1.0 });
           this.streak = 0;
           this.streakText.setAlpha(0);
           // No points for wrong selection
@@ -657,6 +701,7 @@ export default function KohaGame({ onGameOver }: KohaGameProps) {
 
         // After 6 seconds, fade out and call onGameOver
         this.time.delayedCall(6200, () => {
+          this.stopAllAudio();
           this.tweens.add({
             targets: [
               overlay, crowEmoji, twist, scam, divider, body,
