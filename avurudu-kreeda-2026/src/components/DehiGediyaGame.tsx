@@ -78,6 +78,9 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
 
       preload() {
         this.load.video('dehi_bg', '/Dehi/dehi_bg.mp4');
+        this.load.audio('dehi_bgm', '/Dehi/bgd.mp3');
+        this.load.audio('dehi_good', '/Dehi/good.mp3');
+        this.load.audio('dehi_bad', '/Dehi/bad.mp3');
       }
 
       create() {
@@ -196,6 +199,10 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
           if (!this.isGameOver) this.simulatedPointerX = p.x;
         });
 
+        // ── Audio ──
+        const bgm = this.sound.add('dehi_bgm', { loop: true, volume: 0.4 });
+        bgm.play();
+
         // ── Spawn timers ──
         this.time.addEvent({ delay: 3500, callback: this.spawnPowerUp,   callbackScope: this, loop: true });
       }
@@ -293,6 +300,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
           this.difficultyMultiplier += 1.5;
           this.cameras.main.shake(400, 0.03);
           this.showFeedback("CROW ATTACK! 🐦‍⬛", "#ff0000");
+          this.sound.play('dehi_bad', { volume: 0.8 });
         } else if (type === "rock") {
           if (this.score >= 500) this.score -= 500;
           else this.score = 0;
@@ -305,6 +313,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
           this.warningGfx.fillRect(0, 0, this.gameWidth, this.gameHeight);
           this.warningGfx.setAlpha(1);
           this.tweens.add({ targets: this.warningGfx, alpha: 0, duration: 400 });
+          this.sound.play('dehi_bad', { volume: 0.8 });
         } else {
           this.activePowerUp = type as any;
           this.powerupTimer  = 7;
@@ -313,6 +322,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
                   : type === "big"    ? "BIG BOWL! 🍽️"
                   :                     "AVURUDU DASH! ⚡";
           this.showFeedback(msg, col ? `#${col.toString(16).padStart(6,"0")}` : "#ffe600");
+          this.sound.play('dehi_good', { volume: 0.7 });
         }
         
         // Burst particles at catch
@@ -569,6 +579,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
 
             if (this.lives <= 0) {
               this.isGameOver = true;
+              this.sound.stopAll();
               this.time.delayedCall(1200, () => onGameOver(Math.floor(this.score)));
             } else {
               // Brief pause before resetting
