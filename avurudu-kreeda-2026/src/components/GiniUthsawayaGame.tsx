@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ShoppingCart, ChevronRight, Sparkles, X, Info } from "lucide-react";
 import { FIRECRACKERS, FirecrackerType } from "./GiniUthsawayaConfig"; // We'll create a separate config file to clean things up
@@ -8,6 +8,7 @@ import { FIRECRACKERS, FirecrackerType } from "./GiniUthsawayaConfig"; // We'll 
 export default function GiniUthsawayaGame() {
   const gameRef = useRef<HTMLDivElement>(null);
   const phaserGameRef = useRef<Phaser.Game | null>(null);
+  const soundsRef = useRef<Record<string, HTMLAudioElement>>({});
   const [totalPoints, setTotalPoints] = useState(0);
   const [inventory, setInventory] = useState<Record<string, number>>({});
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -20,6 +21,47 @@ export default function GiniUthsawayaGame() {
     const onCrash = () => setHasCrashed(true);
     window.addEventListener('nuclear-crash', onCrash);
     return () => window.removeEventListener('nuclear-crash', onCrash);
+  }, []);
+
+  // Preload all firecracker sounds once on mount
+  useEffect(() => {
+    const files: Record<string, string> = {
+      patas:    '/firecrackers/patas.mp3',
+      bigpatas: '/firecrackers/bigpatas.mp3',
+      chakkaram:'/firecrackers/chakra.mp3',
+      rocket:   '/firecrackers/rocket.MP3',
+      bomb:     '/firecrackers/bomb.mp3',
+      timebomb: '/firecrackers/timebomb.mp3',
+      nuce1:    '/firecrackers/nuce1.mp3',
+      nuce2:    '/firecrackers/nuce2.mp3',
+    };
+    const map: Record<string, HTMLAudioElement> = {};
+    Object.entries(files).forEach(([key, src]) => {
+      const audio = new Audio(src);
+      audio.preload = 'auto';
+      map[key] = audio;
+    });
+    soundsRef.current = map;
+    return () => {
+      Object.values(map).forEach(a => { a.pause(); a.src = ''; });
+    };
+  }, []);
+
+  const playSound = useCallback((key: string, { volume = 1, restart = true }: { volume?: number; restart?: boolean } = {}) => {
+    const audio = soundsRef.current[key];
+    if (!audio) return;
+    if (restart) {
+      audio.currentTime = 0;
+    }
+    audio.volume = Math.min(1, Math.max(0, volume));
+    audio.play().catch(() => {/* autoplay policy – user interacted so should be fine */});
+  }, []);
+
+  const stopSound = useCallback((key: string) => {
+    const audio = soundsRef.current[key];
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
   }, []);
 
   // Derived state: what firecrackers do we actually own?
@@ -206,9 +248,7 @@ export default function GiniUthsawayaGame() {
       fcSprite.setRotation(0);
       isLighting = false;
 
-      // Optional placeholder sound play (AudioContext requires user gesture so it might warn, but placeholder is requested)
-      // We skip sound object creation for now and log it per user instructions.
-      console.log("Plays switch sound for", id);
+      // No switch sound needed — each ignition plays its own sound
 
       // reposition fuse roughly based on placeholder shape
       if (id === 'patas') { fuseZone.setPosition(centerX - 30, centerY - 50); }
@@ -249,7 +289,7 @@ export default function GiniUthsawayaGame() {
         tint: [0xffaa00, 0xff4500]
       });
 
-      console.log("Playing chakkaram fuse hiss sound...");
+      playSound('chakkaram', { volume: 0.9 });
 
       // Tweens the fuse to center
       scene.tweens.add({
@@ -264,7 +304,6 @@ export default function GiniUthsawayaGame() {
         fuseEmitter.stop();
 
         // Phase 2: Ignition & Spin Start
-        console.log("Playing chakkaram spin acceleration sound...");
 
 
 
@@ -327,7 +366,7 @@ export default function GiniUthsawayaGame() {
 
             sprite.setVisible(false);
 
-            console.log("Playing chakkaram blast sound...");
+            // Chakkaram blast (sound already looping from fuse – let it finish naturally)
             scene.cameras.main.shake(1000, 0.02);
 
             // Screen flash
@@ -396,14 +435,14 @@ export default function GiniUthsawayaGame() {
         tint: 0xcccccc
       });
 
-      console.log("Playing rocket fuse sizzle sound...");
+      playSound('rocket', { volume: 0.95 });
 
       scene.time.delayedCall(1200, () => {
         fuseEmitter.stop();
         fuseSmoke.stop();
 
         // Phase 2 & 3: Launch and Flight Phase
-        console.log("Playing rocket launch swoosh sound...");
+        // Rocket is already playing from fuse phase
 
         const offset = sprite.displayHeight / 2;
 
@@ -472,7 +511,7 @@ export default function GiniUthsawayaGame() {
             trailEmitter.stop();
             sideSparks.stop();
 
-            console.log("Playing massive rocket explosion deeply layered boom + sizzle sound...");
+            // Explosion handled by rocket.MP3 continuing
             scene.cameras.main.shake(1000, 0.03);
 
             const flash = scene.add.circle(sprite.x, sprite.y, 10, 0xffffff);
@@ -590,7 +629,7 @@ export default function GiniUthsawayaGame() {
       });
       activeEmitters.push(fuseSmoke);
 
-      console.log("Playing thick fuse sizzle sound...");
+      playSound('bomb', { volume: 1.0 });
 
       // Animate fuse burning down to the center over 2.5s
       this.tweens.add({
@@ -618,7 +657,7 @@ export default function GiniUthsawayaGame() {
 
         // Phase 2: Massive Explosion
         this.cameras.main.shake(3000, 0.05); // Very strong & prolonged
-        console.log("Playing DEEP HEAVY BOMB EXPLOSION SOUND with bass rumble...");
+        // bomb.mp3 continues playing through the explosion
 
         // Bright intense yellow-orange flash filling entire screen
         const flash = this.add.rectangle(cx, cy, this.scale.width * 2, this.scale.height * 2, 0xffaa00);
@@ -745,6 +784,7 @@ export default function GiniUthsawayaGame() {
     const playBigPattasAnimation = (sprite: Phaser.GameObjects.Sprite, cx: number, cy: number, baseScale: number = 1) => {
       const activeEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
       sprite.setData('activeEmitters', activeEmitters);
+      playSound('bigpatas', { volume: 1.0 });
       const mobile = typeof window !== 'undefined' && window.innerWidth < 768;
       const pq = (n: number) => Math.max(8, Math.floor(n * (mobile ? 0.55 : 1)));
 
@@ -809,9 +849,7 @@ export default function GiniUthsawayaGame() {
         fuseThick.stop();
         fuseSmoke.stop();
 
-        // Layered explosion sound placeholders (bass + crackle + sizzle)
-        console.log("[BigPattas] layered boom: sub bass + mid crack + high sparkle");
-        console.log("[BigPattas] heavy bass boom layer");
+        // bigpatas.mp3 started at fuse – continues into explosion
 
         const flashW = Math.max(this.scale.width, this.scale.height) * (mobile ? 1.1 : 1.35);
         const flashH = Math.max(this.scale.width, this.scale.height) * (mobile ? 0.95 : 1.15);
@@ -984,6 +1022,7 @@ export default function GiniUthsawayaGame() {
     const playPatasAnimation = (sprite: Phaser.GameObjects.Sprite, cx: number, cy: number) => {
       const activeEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
       sprite.setData('activeEmitters', activeEmitters);
+      playSound('patas', { volume: 0.9 });
 
       // Phase 1: Quick fuse race (about 1 second)
       const fuseSpark = this.add.particles(cx - 110, cy - 40, 'spark', {
@@ -1171,7 +1210,8 @@ export default function GiniUthsawayaGame() {
         });
       });
 
-      console.log("Playing Mega Pack multiple fuse sizzling sound...");
+      // Mega pack uses bigpatas as its closest sound effect
+      playSound('bigpatas', { volume: 1.0 });
 
       this.time.delayedCall(1500, () => {
         // Phase 2: Build-up small pops
@@ -1179,7 +1219,7 @@ export default function GiniUthsawayaGame() {
           if (e.blendMode === Phaser.BlendModes.ADD) e.stop(); // Stop fuse sparks
         });
 
-        console.log("Playing small build-up pop sounds...");
+        // Small build-up pops – sound continues from fuse
         
         // Small isolated pops
         for (let i = 0; i < 4; i++) {
@@ -1203,7 +1243,7 @@ export default function GiniUthsawayaGame() {
         this.time.delayedCall(800, () => {
           sprite.setVisible(false);
           this.cameras.main.shake(2500, 0.04);
-          console.log("Playing MASSIVE MEGA PACK rapid-fire explosion sound!!!");
+          // bigpatas.mp3 continues through full mega explosion
 
           // Flash
           const flash = this.add.rectangle(cx, cy, this.scale.width * 2, this.scale.height * 2, 0xffeedd);
@@ -1326,7 +1366,7 @@ export default function GiniUthsawayaGame() {
             // Small delayed pops continuing
             for (let d = 0; d < 6; d++) {
               this.time.delayedCall(d * 400 + Phaser.Math.Between(0, 200), () => {
-                console.log("Playing delayed pop sound...");
+                // Delayed pop – sound continues
                 const popx = cx + Phaser.Math.Between(-80, 80);
                 const popy = cy + Phaser.Math.Between(-40, 40);
                 const pop = this.add.particles(popx, popy, 'spark', {
@@ -1387,7 +1427,7 @@ export default function GiniUthsawayaGame() {
       });
       activeEmitters.push(fuseSparks);
 
-      console.log("Playing Time Bomb fuse sizzle sound...");
+      playSound('timebomb', { volume: 1.0 });
 
       this.tweens.add({
         targets: fuseSparks,
@@ -1401,7 +1441,7 @@ export default function GiniUthsawayaGame() {
         fuseSparks.stop();
         
         // Phase 2: Tension Build-up (3 seconds ticking)
-        console.log("Playing ticking sound... tick, tick, tick...");
+        // timebomb.mp3 continues ticking through this phase
         
         // Ticking visual effect: pulsing scale and small center spark
         this.tweens.add({
@@ -1444,7 +1484,7 @@ export default function GiniUthsawayaGame() {
           tensionFlash.destroy();
 
           // Phase 3: Massive Explosion (5 seconds bright red and orange screen)
-          console.log("TIME BOMB DETONATION! Playing massive deep explosion sound...");
+          // timebomb.mp3 continues through detonation
           this.cameras.main.shake(5000, 0.06);
 
           // 5-second intense full-screen flash
@@ -1567,7 +1607,7 @@ export default function GiniUthsawayaGame() {
         duration: 50,
       });
 
-      console.log("Playing intense low rumble sound");
+      playSound('nuce1', { volume: 1.0 });
 
       // Set timeout for 3 seconds exactly
       this.time.delayedCall(3000, () => {
@@ -1579,7 +1619,8 @@ export default function GiniUthsawayaGame() {
         flash.setDepth(100);
         flash.setAlpha(1);
 
-        console.log("Playing extremely loud blast sound");
+        stopSound('nuce1');
+        playSound('nuce2', { volume: 1.0 });
 
         // Wait 1.5 seconds for flash
         this.time.delayedCall(1500, () => {
@@ -1633,7 +1674,7 @@ export default function GiniUthsawayaGame() {
 
     const igniteFirecracker = (id: string) => {
       setIsLightingMode(false); // tell react
-      console.log("Playing ignite sound placeholder for", id);
+      // Sounds are started inside each individual animation function
 
       // Remove 1 from inventory
       setInventory(prev => {
