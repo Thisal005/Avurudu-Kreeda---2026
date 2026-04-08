@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ChevronLeft, Loader2 } from "lucide-react";
-import confetti from "canvas-confetti";
+
 
 // Phaser must be loaded dynamically with SSR disabled
 const GameWrapper = dynamic(() => import("@/components/CatchKaviliGame"), {
@@ -35,14 +35,15 @@ export default function CatchKaviliPage() {
     }
   };
 
-  const triggerConfetti = () => {
+  const triggerConfetti = async () => {
+    const confetti = (await import("canvas-confetti")).default;
     const duration = 3 * 1000;
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 50 };
 
     const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
-    const interval: any = setInterval(function() {
+    const interval: ReturnType<typeof setInterval> = setInterval(function() {
       const timeLeft = animationEnd - Date.now();
 
       if (timeLeft <= 0) {
