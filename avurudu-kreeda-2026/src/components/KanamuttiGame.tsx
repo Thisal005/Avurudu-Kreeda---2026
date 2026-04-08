@@ -30,6 +30,10 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
 
       preload() {
         this.load.image('muttiya', '/Kanamutti/muttiya.png');
+        this.load.audio('winnerSound', '/Kanamutti/winner.mp3');
+        this.load.audio('metalSound', '/Kanamutti/metal.mp3');
+        this.load.audio('bonkSound', '/Kanamutti/bonk.mp3');
+        this.load.audio('ewwwSound', '/Kanamutti/ewww.mp3');
       }
 
       create() {
@@ -271,14 +275,18 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
           ease: 'Power2',
           onComplete: () => {
             this.createHitImpact(pot.x, pot.y);
+            this.sound.play('bonkSound', { volume: 1.0 });
 
-            if (isWin) {
-              this.playWinEffect(pot);
-            } else if (isBonus) {
-              this.playBonusEffect(pot);
-            } else {
-              this.playMissEffect(pot);
-            }
+            // Delay outcome sound so it plays after bonk finishes (~400ms)
+            this.time.delayedCall(400, () => {
+              if (isWin) {
+                this.playWinEffect(pot);
+              } else if (isBonus) {
+                this.playBonusEffect(pot);
+              } else {
+                this.playMissEffect(pot);
+              }
+            });
 
             this.tweens.add({
               targets: stick,
@@ -305,6 +313,8 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
       }
 
       playWinEffect(pot: Phaser.GameObjects.Image) {
+        this.sound.play('winnerSound', { volume: 0.8 }); // plays after bonk
+        
         const x = pot.x;
         const y = pot.y;
 
@@ -390,6 +400,8 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
       }
 
       playBonusEffect(pot: Phaser.GameObjects.Image) {
+        this.sound.play('metalSound', { volume: 0.8 }); // plays after bonk
+
         const x = pot.x;
         const y = pot.y;
         pot.setVisible(false);
@@ -440,6 +452,8 @@ export default function KanamuttiGame({ onGameOver }: KanamuttiGameProps) {
       }
 
       playMissEffect(pot: Phaser.GameObjects.Image) {
+        this.sound.play('ewwwSound', { volume: 0.8 }); // plays after bonk
+
         // Shake the pot heavily
         this.tweens.add({
           targets: pot,
