@@ -97,6 +97,11 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
       // ─── preload ───────────
       preload() {
         this.load.audio("challenge_sound", "/kottapora/jc.mp3");
+        this.load.audio("punch_sound", "/kottapora/punch.mp3");
+        this.load.audio("slap_sound", "/kottapora/slap.mp3");
+        this.load.audio("won_sound", "/kottapora/won.mp3");
+        this.load.audio("boo_sound", "/kottapora/boo.mp3");
+        this.load.audio("hjc_sound", "/kottapora/hjc.mp3");
       }
 
       // ─── create ─────────────────────────────────────────────
@@ -1127,10 +1132,12 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
             this.hitFeedback(this.aiContainer);
             this.playerHype = Math.min(100, this.playerHype + 15 + Math.floor(charge * 15));
             this.updateHypeMeter();
+            this.sound.play("punch_sound", { volume: 0.8 });
           } else {
             this.playerAngle += pushDir * force;
             this.playerAngle = Phaser.Math.Clamp(this.playerAngle, -100, 100);
             this.hitFeedback(this.playerContainer);
+            this.sound.play("slap_sound", { volume: 0.8 });
           }
 
           this.impactTremor = force * 0.4;
@@ -1346,7 +1353,17 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         this.tweens.add({ targets: overlay, fillAlpha: 0.92, duration: 500 });
 
         // Confetti if player won
-        if (playerWon) this.spawnConfetti();
+        if (playerWon) {
+          this.spawnConfetti();
+          this.sound.play("won_sound", { volume: 0.8 });
+        } else {
+          // If in champion mode (John Cena) and AI wins, play John Cena sound
+          if (this.isChampionMode) {
+            this.sound.play("hjc_sound", { volume: 0.8 });
+          } else {
+            this.sound.play("boo_sound", { volume: 0.8 });
+          }
+        }
 
         const titleText = playerWon
           ? (this.isChampionMode ? "👑 You Defeated\nThe World Champion!" : "🏆 Kotta Pora\nChampion!")
