@@ -58,6 +58,11 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
         GOOD_ITEMS.forEach((it) => this.load.image(it.key, it.src));
         BONUS_ITEMS.forEach((it) => this.load.image(it.key, it.src));
         BAD_ITEMS.forEach((it) => this.load.image(it.key, it.src));
+
+        // Load catch sounds
+        this.load.audio("good_sound", "/kavilis/good.mp3");
+        this.load.audio("bonus_sound", "/kavilis/bonus.mp3");
+        this.load.audio("bad_sound", "/Dehi/bad.mp3");
       }
 
       create() {
@@ -339,6 +344,10 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
         const labelText = item.getData("labelText") as Phaser.GameObjects.Text;
 
         if (type === "GOOD" || type === "BONUS") {
+          // Play correct sound
+          if (type === "GOOD") this.sound.play("good_sound");
+          else this.sound.play("bonus_sound");
+
           this.combo++;
           const multiplier = Math.min(this.combo, 5);
           const earned = basePoints * multiplier;
@@ -358,6 +367,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
           }
           this.burstParticles(item.x, item.y, 0x2ecc71);
         } else {
+          this.sound.play("bad_sound");
           this.score = Math.max(0, this.score + basePoints);
           this.resetCombo();
           this.cameras.main.shake(100, 0.008);
