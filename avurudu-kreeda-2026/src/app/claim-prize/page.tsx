@@ -84,7 +84,7 @@ export default function ClaimPrizePage() {
     setIsLoading(true);
     
     setTimeout(() => {
-      router.push("/reveal");
+      router.push("/reveal-shock");
     }, 2800);
   };
 
