@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Trophy, Crown, RefreshCw, Medal } from "lucide-react";
+import { ChevronLeft, Trophy, Crown, RefreshCw, Medal, Gift, Activity } from "lucide-react";
 
 type LeaderboardEntry = {
   rank: number;
@@ -11,17 +11,20 @@ type LeaderboardEntry = {
   isUser: boolean;
 };
 
-const FAKE_LEADERBOARD: Omit<LeaderboardEntry, "isUser">[] = [
-  { rank: 1, name: "Nuwan Kumara", score: 32540 },
-  { rank: 2, name: "S. Karthick", score: 29800 },
-  { rank: 3, name: "Kasun Perera", score: 27550 },
-  { rank: 4, name: "Thilini Silva", score: 25100 },
-  { rank: 5, name: "M. Ramesh", score: 23950 },
-  { rank: 6, name: "Malini Fernando", score: 21400 },
-  { rank: 7, name: "Kamal Jayasuriya", score: 19800 },
-  { rank: 8, name: "V. Vani", score: 17200 },
-  { rank: 9, name: "A. Roshan", score: 15850 },
-  { rank: 10, name: "Niroshan De Silva", score: 13900 },
+const FAKE_NAMES = [
+  "Nuwan Kumara",
+  "S. Karthick",
+  "Kasun Perera",
+  "Thilini Silva",
+  "M. Ramesh",
+  "Malini Fernando",
+  "Kamal Jayasuriya",
+  "V. Vani",
+  "A. Roshan",
+  "Niroshan De Silva",
+  "Dinithi Perera",
+  "Sajeewa Bandara",
+  "Piyumi Senanayake",
 ];
 
 function getUserRankAndScore(points: number): { rank: number; score: number } {
@@ -41,7 +44,7 @@ function getUserRankAndScore(points: number): { rank: number; score: number } {
   if (points >= 5000) return { rank: 40, score: points };
   if (points >= 2000) return { rank: 60, score: points };
   if (points >= 1000) return { rank: 100, score: points };
-  return { rank: 150, score: points }; // default for below 1000
+  return { rank: 150, score: points };
 }
 
 export default function LeaderboardPage() {
@@ -57,40 +60,31 @@ export default function LeaderboardPage() {
 
     const { rank: userRank, score: userScore } = getUserRankAndScore(points);
     
-    // Mix the user into the fake leaderboard
-    const processedLeaderboard = FAKE_LEADERBOARD.map(entry => ({
-      ...entry,
-      isUser: false,
-    }));
+    // Generate 10 fake users with random scores between 18,000 - 32,000
+    const shuffledNames = [...FAKE_NAMES].sort(() => 0.5 - Math.random());
+    const fakeUsers = [];
+    for(let i=0; i<10; i++) {
+        fakeUsers.push({
+            name: shuffledNames[i],
+            score: Math.floor(Math.random() * (32000 - 18000 + 1)) + 18000,
+            isUser: false,
+            rank: 0,
+        });
+    }
 
-    // If user is top 10, replace or insert them appropriately.
-    // Actually, simpler logic: just build a combined list, sort, and slice top 10?
-    // The prompt asks to "Show a beautiful top 10 ranking list with fake names... Show the user's rank prominently at the top or bottom of the leaderboard with a 'You' label... Highlight the user's row clearly (different background or crown icon if they are in top 10)"
-    
-    // We can inject user in the main list if rank <= 10.
-    const combinedList = [...processedLeaderboard];
+    const combinedList = [...fakeUsers];
     
     if (userRank <= 10) {
-      // Find the position to insert/replace
-      const existingRecordIndex = combinedList.findIndex(e => e.rank === userRank);
-      if (existingRecordIndex !== -1) {
-        // Just shift the ranks or replace. Let's replace for simplicity but keep 10 items.
-        // Actually, let's just insert and re-rank or update the existing rank 
-        // Better: let's filter out by score and push
-        // Let's just create a dynamic list and sort by score, taking top 10!
-        combinedList.push({
-          rank: userRank, // will re-evaluate later anyway, or just keep
-          name: "You (Player)",
-          score: userScore,
-          isUser: true,
-        });
-      }
+      combinedList.push({
+        rank: 0,
+        name: "YOU",
+        score: userScore,
+        isUser: true,
+      });
     }
     
-    // Sort all by score descending
     combinedList.sort((a, b) => b.score - a.score);
     
-    // Assign ranks 1 to 10
     const top10 = combinedList.slice(0, 10).map((item, index) => ({
       ...item,
       rank: index + 1
@@ -105,15 +99,22 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     loadLeaderboard();
+
+    // Setup an interval to "refresh" scores every 30 seconds automatically to make it feel alive
+    const interval = setInterval(() => {
+        loadLeaderboard();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const { rank: userRank, score: userScore } = getUserRankAndScore(totalPoints);
+  const { rank: userRank } = getUserRankAndScore(totalPoints);
 
   const getRankBadge = (rank: number) => {
-    if (rank === 1) return <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-yellow-900 font-bold shadow-lg shadow-yellow-400/50 border-2 border-yellow-200">1</div>;
-    if (rank === 2) return <div className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-slate-800 font-bold shadow-lg shadow-slate-300/50 border-2 border-white">2</div>;
-    if (rank === 3) return <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold shadow-lg shadow-amber-600/50 border-2 border-amber-400">3</div>;
-    return <div className="w-8 h-8 rounded-full bg-avurudu-bg flex items-center justify-center text-avurudu-dark font-bold border-2 border-avurudu-yellow/50">{rank}</div>;
+    if (rank === 1) return <div className="min-w-8 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-yellow-900 font-bold shadow-lg shadow-yellow-400/50 border-2 border-yellow-200">1</div>;
+    if (rank === 2) return <div className="min-w-8 w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-slate-800 font-bold shadow-lg shadow-slate-300/50 border-2 border-white">2</div>;
+    if (rank === 3) return <div className="min-w-8 w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold shadow-lg shadow-amber-600/50 border-2 border-amber-400">3</div>;
+    return <div className="min-w-8 w-8 h-8 rounded-full bg-avurudu-bg flex items-center justify-center text-avurudu-dark font-bold border-2 border-avurudu-yellow/50">{rank}</div>;
   };
 
   return (
@@ -121,26 +122,72 @@ export default function LeaderboardPage() {
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20 bg-[url('/pattern.png')] bg-repeat" />
 
       {/* Header */}
-      <header className="w-full flex items-center justify-between z-10 mb-8 max-w-2xl mx-auto">
+      <header className="w-full flex items-center justify-between z-10 mb-6 max-w-2xl mx-auto">
         <Link href="/games" className="bg-white/80 p-2 rounded-full shadow-md text-avurudu-dark hover:bg-avurudu-yellow transition-colors">
           <ChevronLeft className="w-6 h-6" />
         </Link>
         <div className="flex flex-col items-center flex-1">
-          <p className="text-sm font-bold text-avurudu-red tracking-widest uppercase">Avurudu Kreeda</p>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-avurudu-dark drop-shadow-sm text-center">
-            Championship 2026
+          <p className="text-xs md:text-sm font-bold text-avurudu-red tracking-widest uppercase">Avurudu Kreeda Championship 2026</p>
+          <h1 className="text-xl md:text-3xl font-extrabold text-avurudu-dark drop-shadow-sm text-center flex items-center gap-2">
+            Live Leaderboard
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
           </h1>
         </div>
         <button 
           onClick={loadLeaderboard}
-          className={`bg-white/80 p-2 rounded-full shadow-md text-avurudu-dark hover:bg-avurudu-yellow transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
+          className={`bg-white/80 p-2 rounded-full shadow-md text-avurudu-dark hover:bg-avurudu-yellow transition-colors ${isRefreshing ? 'animate-spin text-avurudu-orange' : ''}`}
         >
           <RefreshCw className="w-6 h-6" />
         </button>
       </header>
 
+      <div className="text-center z-10 mb-6 max-w-2xl mx-auto w-full">
+         <p className="text-sm font-bold text-avurudu-dark bg-white/70 inline-block px-4 py-2 rounded-full shadow-sm border border-avurudu-yellow/50">
+            Event Period: 12th April - 17th April 2026
+         </p>
+         <p className="text-xs font-semibold text-avurudu-red mt-2">
+            * Final winners will be announced after 17th April 2026
+         </p>
+      </div>
+
       <div className="w-full max-w-2xl mx-auto z-10 flex flex-col gap-6 pb-20">
         
+        {/* Real Prize Structure Card */}
+        <div className="bg-gradient-to-br from-yellow-100 to-orange-50 rounded-3xl p-5 shadow-lg border border-yellow-300 relative overflow-hidden">
+          <div className="absolute -right-4 -top-4 opacity-10">
+             <Trophy className="w-32 h-32 text-orange-600" />
+          </div>
+          <h2 className="text-lg font-black text-avurudu-dark mb-4 flex items-center gap-2">
+            <Gift className="w-5 h-5 text-avurudu-red" /> 
+            Real Prize Distribution
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
+                <span className="font-bold text-avurudu-dark flex items-center gap-2">👑 Grand Prize</span>
+                <span className="font-black text-avurudu-red">LKR 25,000</span>
+             </div>
+             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
+                <span className="font-bold text-slate-700 flex items-center gap-2">🥈 1st Runner-up</span>
+                <span className="font-black text-avurudu-orange">LKR 15,000</span>
+             </div>
+             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
+                <span className="font-bold text-amber-700 flex items-center gap-2">🥉 2nd Runner-up</span>
+                <span className="font-black text-avurudu-orange">LKR 10,000</span>
+             </div>
+             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
+                <span className="font-bold text-avurudu-dark text-sm">Positions 3 to 10</span>
+                <span className="font-bold text-avurudu-red text-sm">LKR 2,500 each</span>
+             </div>
+          </div>
+          <div className="mt-3 bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200 relative z-10">
+            <span className="font-bold text-avurudu-dark text-sm">Positions 11 to 100</span>
+            <span className="font-bold text-green-700 text-sm">Free Mobile Reload (Raffle)</span>
+          </div>
+        </div>
+
         {/* User Stats Card */}
         <div className="bg-gradient-to-r from-avurudu-red via-avurudu-orange to-avurudu-yellow p-[3px] rounded-3xl shadow-xl">
           <div className="bg-white rounded-[21px] p-5 flex items-center justify-between">
@@ -176,7 +223,7 @@ export default function LeaderboardPage() {
             <Link href="/claim-prize" className="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-2xl font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.5)] border-2 border-white hover:scale-[1.02] transition-transform overflow-hidden relative group">
               <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black"></span>
               <span className="relative flex items-center justify-center gap-2 drop-shadow-md">
-                🎁 Claim Your Grand Avurudu Prize!
+                🎯 Register to Win Real Prizes
               </span>
             </Link>
           </div>
@@ -189,9 +236,9 @@ export default function LeaderboardPage() {
           <div className="absolute top-4 right-4 text-3xl opacity-50">🪔</div>
           
           <h2 className="text-center text-xl font-bold text-avurudu-dark mb-6 mt-2 flex items-center justify-center gap-2">
-            <Medal className="w-6 h-6 text-avurudu-red" />
+            <Activity className="w-6 h-6 text-avurudu-red animate-pulse" />
             Top 10 Heroes
-            <Medal className="w-6 h-6 text-avurudu-red" />
+            <Activity className="w-6 h-6 text-avurudu-red animate-pulse" />
           </h2>
 
           <div className="flex flex-col gap-3">
@@ -231,11 +278,11 @@ export default function LeaderboardPage() {
               </div>
               <div className="flex items-center justify-between p-3 rounded-2xl bg-avurudu-yellow/30 border-2 border-avurudu-orange shadow-md transform scale-[1.02]">
                 <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-avurudu-bg flex items-center justify-center text-avurudu-dark font-bold border-2 border-avurudu-yellow/50">
+                  <div className="min-w-8 w-8 h-8 rounded-full bg-avurudu-bg flex items-center justify-center text-avurudu-dark font-bold border-2 border-avurudu-yellow/50">
                     {userRank}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-avurudu-red text-lg">You (Player) ⭐</span>
+                    <span className="font-bold text-avurudu-red text-lg">YOU ⭐</span>
                     <span className="text-xs font-bold text-avurudu-orange">Current Position</span>
                   </div>
                 </div>
