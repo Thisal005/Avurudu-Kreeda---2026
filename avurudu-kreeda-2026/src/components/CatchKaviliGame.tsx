@@ -63,6 +63,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
         this.load.audio("good_sound", "/kavilis/good.mp3");
         this.load.audio("bonus_sound", "/kavilis/bonus.mp3");
         this.load.audio("bad_sound", "/Dehi/bad.mp3");
+        this.load.audio("win_sound", "/kavilis/win.mp3");
       }
 
       create() {
@@ -424,6 +425,7 @@ export default function CatchKaviliGame({ onGameOver }: CatchKaviliGameProps) {
           this.gameTimer.remove();
           this.spawnTimer.remove();
           this.fallingItems.forEach((item: any) => item.setData("speed", 0));
+          this.sound.play("win_sound");
           this.time.delayedCall(1500, () => { onGameOver(this.score); });
         }
       }
