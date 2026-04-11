@@ -79,7 +79,7 @@ export default function WelcomePopup() {
           </div>
 
           <p className="flex items-center justify-center gap-2 text-sm font-bold text-red-600 mb-6 bg-red-100/50 px-4 py-2 rounded-full w-full">
-            <Info size={16} /> Play honestly. Have fun. Stay safe from real scams!
+            <Info size={16} /> Play honestly. Have fun. Win awurudu thagi!
           </p>
 
           <button

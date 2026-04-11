@@ -247,7 +247,12 @@ export default function GiniUthsawayaGame() {
               {ownedItems.length > 1 && (
                 <button
                   onClick={handlePrev}
-                  className="bg-white/10 p-4 rounded-full text-white hover:bg-white/20 active:scale-95 transition-all"
+                  disabled={isLightingMode}
+                  className={`bg-white/10 p-4 rounded-full text-white transition-all ${
+                    isLightingMode
+                      ? "opacity-30 cursor-not-allowed"
+                      : "hover:bg-white/20 active:scale-95"
+                  }`}
                 >
                   <ChevronLeft className="w-8 h-8" />
                 </button>
@@ -256,7 +261,12 @@ export default function GiniUthsawayaGame() {
               {ownedItems.length > 1 && (
                 <button
                   onClick={handleNext}
-                  className="bg-white/10 p-4 rounded-full text-white hover:bg-white/20 active:scale-95 transition-all"
+                  disabled={isLightingMode}
+                  className={`bg-white/10 p-4 rounded-full text-white transition-all ${
+                    isLightingMode
+                      ? "opacity-30 cursor-not-allowed"
+                      : "hover:bg-white/20 active:scale-95"
+                  }`}
                 >
                   <ChevronRight className="w-8 h-8" />
                 </button>
