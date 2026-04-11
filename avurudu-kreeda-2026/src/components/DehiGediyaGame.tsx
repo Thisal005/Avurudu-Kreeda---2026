@@ -81,6 +81,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
         this.load.audio('dehi_bgm', '/Dehi/bgd.mp3');
         this.load.audio('dehi_good', '/Dehi/good.mp3');
         this.load.audio('dehi_bad', '/Dehi/bad.mp3');
+        this.load.audio('dehi_lose', '/Dehi/lose.mp3');
       }
 
       create() {
@@ -580,6 +581,7 @@ export default function DehiGediyaGame({ onGameOver }: DehiGediyaGameProps) {
             if (this.lives <= 0) {
               this.isGameOver = true;
               this.sound.stopAll();
+              this.sound.play('dehi_lose', { volume: 1.0 });
               this.time.delayedCall(1200, () => onGameOver(Math.floor(this.score)));
             } else {
               // Brief pause before resetting
