@@ -31,7 +31,8 @@ export default function GiniUthsawayaGame() {
       chakkaram:'/firecrackers/chakra.mp3',
       rocket:   '/firecrackers/rocket.MP3',
       bomb:     '/firecrackers/bomb.mp3',
-      timebomb: '/firecrackers/timebomb.mp3',
+      timebomb1: '/firecrackers/sound_1.mp3',
+      timebomb2: '/firecrackers/timebomb.mp3',
       nuce1:    '/firecrackers/nuce1.mp3',
       nuce2:    '/firecrackers/nuce2.mp3',
     };
@@ -1427,7 +1428,7 @@ export default function GiniUthsawayaGame() {
       });
       activeEmitters.push(fuseSparks);
 
-      playSound('timebomb', { volume: 1.0 });
+      playSound('timebomb1', { volume: 1.0 });
 
       this.tweens.add({
         targets: fuseSparks,
@@ -1484,7 +1485,8 @@ export default function GiniUthsawayaGame() {
           tensionFlash.destroy();
 
           // Phase 3: Massive Explosion (5 seconds bright red and orange screen)
-          // timebomb.mp3 continues through detonation
+          stopSound('timebomb1');
+          playSound('timebomb2', { volume: 1.0 });
           this.cameras.main.shake(5000, 0.06);
 
           // 5-second intense full-screen flash
