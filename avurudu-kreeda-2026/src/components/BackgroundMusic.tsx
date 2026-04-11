@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { FaVolumeMute, FaVolumeUp, FaMusic, FaStepForward } from "react-icons/fa";
 
 const musicPlaylist = [
@@ -9,7 +10,11 @@ const musicPlaylist = [
   { src: "/bg musics/me-awrudu-kale.mp3", label: "🎵 Me Awrudu Kale" },
 ];
 
+const HIDDEN_ROUTES = ["/game/kotta-pora"];
+
 const BackgroundMusic = () => {
+  const pathname = usePathname();
+  const isHidden = HIDDEN_ROUTES.some((r) => pathname.startsWith(r));
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -156,15 +161,13 @@ const BackgroundMusic = () => {
     transition: `opacity 0.3s ease ${extraDelay}, transform 0.3s ease ${extraDelay}`,
   });
 
+  // Hide on routes that manage their own audio
+  if (isHidden) return null;
+
   return (
     <div
       ref={containerRef}
-      style={{
-        position: "fixed",
-        ...(isTouchDevice ? { top: "1rem" } : { bottom: "1rem" }),
-        right: "1rem",
-        zIndex: 50,
-      }}
+      style={{ position: "fixed", bottom: "1rem", right: "1rem", zIndex: 50 }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
