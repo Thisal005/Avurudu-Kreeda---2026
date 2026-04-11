@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import BackgroundMusic from "@/components/BackgroundMusic";
+import WelcomePopup from "@/components/WelcomePopup";
 
 const geistSans = Outfit({
   variable: "--font-geist-sans",
@@ -30,6 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <BackgroundMusic />
+        <WelcomePopup />
         {children}
       </body>
     </html>
