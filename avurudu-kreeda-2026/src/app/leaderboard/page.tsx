@@ -197,9 +197,7 @@ export default function LeaderboardPage() {
             </span>
             <span className="text-xs font-semibold text-slate-500">25,000 – 49,999 KP</span>
           </div>
-          <p className="mt-4 text-xs font-bold text-avurudu-dark/80 text-center relative z-10">
-             * Note: Below 25,000 KP will receive a Participation Certificate.
-          </p>
+          
         </div>
 
         {/* User Stats Card */}
