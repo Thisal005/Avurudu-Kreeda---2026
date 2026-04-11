@@ -15,51 +15,71 @@ const KanamuttiGame = dynamic(() => import("@/components/KanamuttiGame"), {
   ),
 });
 
+const SCORES = {
+  WIN_ATTEMPT_1: 5000,
+  WIN_ATTEMPTS_2_TO_4: 4000,
+  WIN_ATTEMPTS_5_TO_7: 3000,
+  WIN_ATTEMPTS_8_PLUS: 1000,
+  BONUS: 500,
+  MISS: 0,
+} as const;
+
+type ResultType = 'win' | 'bonus' | 'miss';
+
+const calculateScore = (result: ResultType, attempts: number): number => {
+  if (result === 'bonus') return SCORES.BONUS;
+  if (result === 'miss') return SCORES.MISS;
+  
+  if (attempts === 1) return SCORES.WIN_ATTEMPT_1;
+  if (attempts <= 4) return SCORES.WIN_ATTEMPTS_2_TO_4;
+  if (attempts <= 7) return SCORES.WIN_ATTEMPTS_5_TO_7;
+  return SCORES.WIN_ATTEMPTS_8_PLUS;
+};
+
 export default function KanamuttiBindeemaPage() {
   const [gameOver, setGameOver] = useState(false);
   const [roundScore, setRoundScore] = useState(0);
-  const [resultType, setResultType] = useState<'win' | 'bonus' | 'miss'>('miss');
+  const [resultType, setResultType] = useState<ResultType>('miss');
   const [totalPoints, setTotalPoints] = useState(0);
   const [attempts, setAttempts] = useState(1);
 
   // Load points on mount
   useEffect(() => {
-    const saved = localStorage.getItem("kreedaPoints");
-    if (saved) {
-      setTotalPoints(parseInt(saved, 10));
+    try {
+      const saved = localStorage.getItem("kreedaPoints");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed)) {
+          setTotalPoints(parsed);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to read score from localStorage", error);
     }
   }, []);
 
-  const handleGameOver = (result: 'win' | 'bonus' | 'miss') => {
-    let score = 0;
-    if (result === 'win') {
-      if (attempts === 1) score = 5000;
-      else if (attempts >= 2 && attempts <= 4) score = 4000;
-      else if (attempts >= 5 && attempts <= 7) score = 3000;
-      else score = 1000;
-    } else if (result === 'bonus') {
-      score = 500;
-    } else {
-      score = 0;
-    }
+  const handleGameOver = (result: ResultType) => {
+    const score = calculateScore(result, attempts);
 
     setRoundScore(score);
     setResultType(result);
     setGameOver(true);
 
-    const newTotal = totalPoints + score;
-    setTotalPoints(newTotal);
-    localStorage.setItem("kreedaPoints", newTotal.toString());
+    setTotalPoints((prevTotal) => {
+      const newTotal = prevTotal + score;
+      try {
+        localStorage.setItem("kreedaPoints", newTotal.toString());
+      } catch (error) {
+        console.error("Failed to save score to localStorage", error);
+      }
+      return newTotal;
+    });
   };
 
   const handlePlayAgain = () => {
     setGameOver(false);
     setRoundScore(0);
-    if (resultType === 'win') {
-      setAttempts(1);
-    } else {
-      setAttempts(prev => prev + 1);
-    }
+    setAttempts((prev) => (resultType === 'win' ? 1 : prev + 1));
   };
 
   const isPositive = resultType === 'win' || resultType === 'bonus';
