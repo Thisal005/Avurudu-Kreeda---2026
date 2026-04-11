@@ -38,7 +38,7 @@ export default function Home() {
         <div className="bg-avurudu-red border-4 border-avurudu-yellow rounded-2xl p-6 shadow-2xl relative animate-bounce-slow mb-12">
           {/* Top decoration */}
           <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-avurudu-yellow px-4 py-1 rounded-full border-2 border-avurudu-red text-avurudu-red font-bold text-sm tracking-wider">
-            LEO CLUB PRESENTS
+            VERCEL PRESENTS
           </div>
           
           <h1 className="text-4xl md:text-5xl font-extrabold text-avurudu-yellow drop-shadow-md mb-2">
@@ -80,10 +80,10 @@ export default function Home() {
       <footer className="w-full text-center py-6 z-10 mt-10 flex flex-col items-center justify-center opacity-70 hover:opacity-100 transition-opacity">
         <div className="flex items-center gap-2 text-avurudu-dark/60 text-sm font-medium">
           <ShieldAlert className="w-4 h-4" />
-          <span>Educational Cyber Security Awareness Project</span>
+          <span>Awurudu with vercel community Sri Lanka</span>
         </div>
-        <p className="text-avurudu-dark/50 text-xs mt-1">
-          &copy; 2026 Leo Club. All rights reserved.
+        <p className="text-avurudu-dark/50 text-xs mt-1 ">
+          &copy; 2026 <a href="https://thisalth.dev" target="_blank" rel="noopener noreferrer" className="hover:text-avurudu-dark/80 transition-colors">thisalth.dev</a>. All rights reserved.
         </p>
       </footer>
     </main>

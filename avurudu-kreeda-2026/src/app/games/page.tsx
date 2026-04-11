@@ -171,7 +171,7 @@ export default function GamesHub() {
           </div>
         </Link>
 
-        {/* Active Game: Gini Uthsawaya */}
+        {/* Active Game: GiniKelo */}
         <Link href="/game/gini-uthsawaya" className="group block relative">
           <div className="absolute -inset-1 bg-gradient-to-r from-avurudu-red to-avurudu-yellow rounded-3xl blur opacity-40 group-hover:opacity-100 transition duration-200"></div>
           <div className="relative bg-[#0a0a1a] rounded-3xl p-6 shadow-xl border-2 border-avurudu-orange flex flex-col items-center gap-4 hover:scale-[1.02] transition-transform">
@@ -180,7 +180,7 @@ export default function GamesHub() {
                🎇
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-black text-white mb-1 drop-shadow-md">Awurudu Gini Uthsawaya</h2>
+              <h2 className="text-2xl font-black text-white mb-1 drop-shadow-md">Awurudu GiniKeli</h2>
               <p className="text-sm text-white/80 font-medium whitespace-pre-line">
                 Light up the celebration! Buy, view, and ignite stunning firecrackers.
               </p>
