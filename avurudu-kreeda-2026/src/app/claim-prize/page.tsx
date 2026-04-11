@@ -263,7 +263,7 @@ export default function ClaimPrizePage() {
       <footer className="w-full text-center pb-6 z-10 flex flex-col items-center justify-center opacity-60">
         <div className="flex items-center gap-2 text-avurudu-dark/60 text-xs font-medium">
           <ShieldAlert className="w-3 h-3" />
-          <span>This is part of a Cyber Security Awareness Project by Leo Club</span>
+          <span>This is a real registration for the Avurudu Kreeda Championship prizes powerd by VERCEL</span>
         </div>
       </footer>
     </main>

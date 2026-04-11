@@ -28,23 +28,19 @@ const FAKE_NAMES = [
 ];
 
 function getUserRankAndScore(points: number): { rank: number; score: number } {
-  if (points >= 30000) return { rank: 1, score: points };
-  if (points >= 28000) return { rank: 2, score: points };
-  if (points >= 26000) return { rank: 3, score: points };
-  if (points >= 24000) return { rank: 4, score: points };
-  if (points >= 22000) return { rank: 5, score: points };
-  if (points >= 20000) return { rank: 6, score: points };
-  if (points >= 18500) return { rank: 7, score: points };
-  if (points >= 16000) return { rank: 8, score: points };
-  if (points >= 14000) return { rank: 9, score: points };
-  if (points >= 12000) return { rank: 10, score: points };
-  if (points >= 10000) return { rank: 14, score: points };
-  if (points >= 8000) return { rank: 21, score: points };
-  if (points >= 7000) return { rank: 35, score: points };
-  if (points >= 5000) return { rank: 40, score: points };
-  if (points >= 2000) return { rank: 60, score: points };
-  if (points >= 1000) return { rank: 100, score: points };
-  return { rank: 150, score: points };
+  if (points >= 100000) return { rank: 1, score: points };
+  if (points >= 85000) return { rank: 2, score: points };
+  if (points >= 70000) return { rank: 3, score: points };
+  if (points >= 65000) return { rank: 4, score: points };
+  if (points >= 60000) return { rank: 5, score: points };
+  if (points >= 55000) return { rank: 6, score: points };
+  if (points >= 50000) return { rank: 8, score: points };
+  if (points >= 40000) return { rank: 15, score: points };
+  if (points >= 30000) return { rank: 45, score: points };
+  if (points >= 25000) return { rank: 80, score: points };
+  if (points >= 15000) return { rank: 120, score: points };
+  if (points >= 5000) return { rank: 250, score: points };
+  return { rank: 500, score: points };
 }
 
 export default function LeaderboardPage() {
@@ -60,13 +56,13 @@ export default function LeaderboardPage() {
 
     const { rank: userRank, score: userScore } = getUserRankAndScore(points);
     
-    // Generate 10 fake users with random scores between 18,000 - 32,000
+    // Generate 10 fake users with random scores between 92,000 - 135,000
     const shuffledNames = [...FAKE_NAMES].sort(() => 0.5 - Math.random());
     const fakeUsers = [];
     for(let i=0; i<10; i++) {
         fakeUsers.push({
             name: shuffledNames[i],
-            score: Math.floor(Math.random() * (32000 - 18000 + 1)) + 18000,
+            score: Math.floor(Math.random() * (135000 - 92000 + 1)) + 92000,
             isUser: false,
             rank: 0,
         });
@@ -165,27 +161,45 @@ export default function LeaderboardPage() {
             Real Prize Distribution
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
-                <span className="font-bold text-avurudu-dark flex items-center gap-2">👑 Grand Prize</span>
-                <span className="font-black text-avurudu-red">LKR 25,000</span>
+             <div className="bg-white/80 rounded-xl p-3 flex flex-col justify-between shadow-sm border border-yellow-200">
+                <span className="font-bold text-avurudu-dark flex items-center justify-between mb-1">
+                   <span className="flex items-center gap-2">👑 Grand Prize</span>
+                   <span className="font-black text-avurudu-red text-lg">LKR 25,000</span>
+                </span>
+                <span className="text-xs font-semibold text-slate-500">100,000+ KP</span>
              </div>
-             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
-                <span className="font-bold text-slate-700 flex items-center gap-2">🥈 1st Runner-up</span>
-                <span className="font-black text-avurudu-orange">LKR 15,000</span>
+             <div className="bg-white/80 rounded-xl p-3 flex flex-col justify-between shadow-sm border border-yellow-200">
+                <span className="font-bold text-slate-700 flex items-center justify-between mb-1">
+                   <span className="flex items-center gap-2">🥈 1st Runner-up</span>
+                   <span className="font-black text-avurudu-orange text-lg">LKR 15,000</span>
+                </span>
+                <span className="text-xs font-semibold text-slate-500">85,000 – 99,999 KP</span>
              </div>
-             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
-                <span className="font-bold text-amber-700 flex items-center gap-2">🥉 2nd Runner-up</span>
-                <span className="font-black text-avurudu-orange">LKR 10,000</span>
+             <div className="bg-white/80 rounded-xl p-3 flex flex-col justify-between shadow-sm border border-yellow-200">
+                <span className="font-bold text-amber-700 flex items-center justify-between mb-1">
+                   <span className="flex items-center gap-2">🥉 2nd Runner-up</span>
+                   <span className="font-black text-avurudu-orange text-lg">LKR 10,000</span>
+                </span>
+                <span className="text-xs font-semibold text-slate-500">70,000 – 84,999 KP</span>
              </div>
-             <div className="bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200">
-                <span className="font-bold text-avurudu-dark text-sm">Positions 3 to 10</span>
-                <span className="font-bold text-avurudu-red text-sm">LKR 2,500 each</span>
+             <div className="bg-white/80 rounded-xl p-3 flex flex-col justify-between shadow-sm border border-yellow-200">
+                <span className="font-bold text-avurudu-dark flex items-center justify-between mb-1 text-sm">
+                   <span>Positions 4 to 10</span>
+                   <span className="font-bold text-avurudu-red text-lg">LKR 2,500 <span className="text-xs">each</span></span>
+                </span>
+                <span className="text-xs font-semibold text-slate-500">50,000 – 69,999 KP</span>
              </div>
           </div>
-          <div className="mt-3 bg-white/80 rounded-xl p-3 flex justify-between items-center shadow-sm border border-yellow-200 relative z-10">
-            <span className="font-bold text-avurudu-dark text-sm">Positions 11 to 100</span>
-            <span className="font-bold text-green-700 text-sm">Free Mobile Reload (Raffle)</span>
+          <div className="mt-3 bg-white/80 rounded-xl p-3 flex flex-col justify-between shadow-sm border border-yellow-200 relative z-10">
+            <span className="font-bold text-avurudu-dark flex items-center justify-between mb-1 text-sm">
+               <span>Positions 11 to 100</span>
+               <span className="font-bold text-green-700 text-lg">Free Mobile Reload</span>
+            </span>
+            <span className="text-xs font-semibold text-slate-500">25,000 – 49,999 KP</span>
           </div>
+          <p className="mt-4 text-xs font-bold text-avurudu-dark/80 text-center relative z-10">
+             * Note: Below 25,000 KP will receive a Participation Certificate.
+          </p>
         </div>
 
         {/* User Stats Card */}
@@ -219,13 +233,20 @@ export default function LeaderboardPage() {
 
         {/* Claim Prize Link */}
         {totalPoints > 0 && (
-          <div className="w-full animate-pulse-slow">
-            <Link href="/claim-prize" className="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-2xl font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.5)] border-2 border-white hover:scale-[1.02] transition-transform overflow-hidden relative group">
-              <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black"></span>
-              <span className="relative flex items-center justify-center gap-2 drop-shadow-md">
-                🎯 Register to Win Real Prizes
-              </span>
-            </Link>
+          <div className="w-full flex flex-col gap-3">
+             <div className="bg-white/80 p-3 rounded-xl border border-avurudu-yellow text-center shadow-sm">
+                <p className="text-sm font-bold text-avurudu-dark">
+                   Play more games and collect as many Kreeda Points as possible before 17th April 2026 to increase your chances of winning big prizes!
+                </p>
+             </div>
+             <div className="animate-pulse-slow">
+              <Link href="/claim-prize" className="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-2xl font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.5)] border-2 border-white hover:scale-[1.02] transition-transform overflow-hidden relative group">
+                <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black"></span>
+                <span className="relative flex items-center justify-center gap-2 drop-shadow-md">
+                  🎯 Register to Win Real Prizes
+                </span>
+              </Link>
+             </div>
           </div>
         )}
 
