@@ -159,7 +159,12 @@ const BackgroundMusic = () => {
   return (
     <div
       ref={containerRef}
-      style={{ position: "fixed", bottom: "1rem", right: "1rem", zIndex: 50 }}
+      style={{
+        position: "fixed",
+        ...(isTouchDevice ? { top: "1rem" } : { bottom: "1rem" }),
+        right: "1rem",
+        zIndex: 50,
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

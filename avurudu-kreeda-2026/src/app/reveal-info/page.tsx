@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Share2, Globe, Home, Gamepad2 } from "lucide-react";
+import { Share2, Globe, Home, Gamepad2, SkipForward } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 
 type Language = "en" | "si" | "ta";
@@ -139,7 +139,7 @@ export default function RevealInfoPage() {
     if (currentScene < totalScenes - 1) {
       setFadeState("out");
       setTimeout(() => {
-        setCurrentScene(s => s + 1);
+        setCurrentScene(s => Math.min(s + 1, totalScenes - 1));
         setFadeState("in");
       }, 1200); // Wait for fade out to complete before next scene
     } else {
@@ -171,13 +171,23 @@ export default function RevealInfoPage() {
     if (currentScene < totalScenes - 1) {
       setFadeState("out");
       setTimeout(() => {
-        setCurrentScene(s => s + 1);
+        setCurrentScene(s => Math.min(s + 1, totalScenes - 1));
         setFadeState("in");
       }, 500);
     }
   };
 
-  const currentContent = CONTENT[lang][currentScene];
+  // Skip all scenes and jump to the final scene
+  const skipAll = () => {
+    setFadeState("out");
+    setTimeout(() => {
+      setCurrentScene(totalScenes - 1);
+      setFadeState("in");
+      setTimeout(() => setShowButtons(true), 500);
+    }, 400);
+  };
+
+  const currentContent = CONTENT[lang][currentScene] ?? CONTENT[lang][totalScenes - 1];
   const isCreditsScene = currentScene === totalScenes - 2;
   const isFinalScene = currentScene === totalScenes - 1;
 
@@ -237,6 +247,17 @@ export default function RevealInfoPage() {
           />
         ))}
       </div>
+
+      {/* --- SKIP BUTTON --- */}
+      {!isFinalScene && (
+        <button
+          onClick={(e) => { e.stopPropagation(); skipAll(); }}
+          className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-lg bg-black/50 border border-gray-700 text-gray-400 hover:text-white hover:border-red-500 hover:bg-red-950/30 transition-all text-sm font-medium backdrop-blur-sm"
+        >
+          <SkipForward className="w-4 h-4" />
+          Skip
+        </button>
+      )}
 
       {/* --- LANGUAGE TOGGLE --- */}
       <div className="absolute top-6 right-6 z-50 flex gap-2">
