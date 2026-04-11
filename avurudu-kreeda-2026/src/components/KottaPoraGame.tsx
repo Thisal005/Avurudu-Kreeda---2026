@@ -96,6 +96,8 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
 
       // ─── preload ───────────
       preload() {
+        this.load.audio("challenge", "/kottapora/challenge.mp3");
+        this.load.audio("accepted", "/kottapora/accepted.mp3");
         this.load.audio("challenge_sound", "/kottapora/jc.mp3");
         this.load.audio("punch_sound", "/kottapora/punch.mp3");
         this.load.audio("slap_sound", "/kottapora/slap.mp3");
@@ -1475,6 +1477,9 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
       }
 
       showChampionChallenge(prevScore: number) {
+        if (this.cache.audio.exists("challenge")) {
+           this.sound.play("challenge", { volume: 0.8 });
+        }
         const { width, height } = this.scale;
         
         const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.8).setDepth(60);
@@ -1523,6 +1528,9 @@ export default function KottaPoraGame({ onMatchEnd }: KottaPoraGameProps) {
         });
         
         btnArea.once('pointerdown', () => {
+          if (this.cache.audio.exists("accepted")) {
+             this.sound.play("accepted", { volume: 0.8 });
+          }
           this.tweens.killTweensOf([btnBg, btnText]);
           btnBg.destroy();
           btnText.destroy();

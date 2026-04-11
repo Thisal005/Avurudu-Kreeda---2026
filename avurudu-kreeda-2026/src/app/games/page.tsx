@@ -140,7 +140,7 @@ export default function GamesHub() {
           <div className="absolute -inset-1 bg-gradient-to-r from-avurudu-red to-avurudu-yellow rounded-3xl blur opacity-25 group-hover:opacity-75 transition duration-200"></div>
           <div className="relative bg-white rounded-3xl p-6 shadow-xl border-2 border-avurudu-yellow flex flex-col items-center gap-4 hover:scale-[1.02] transition-transform">
             <div className="w-24 h-24 bg-avurudu-yellow/20 rounded-full flex items-center justify-center text-5xl">
-              🛌
+              🥊
             </div>
             <div className="text-center">
               <h2 className="text-2xl font-bold text-avurudu-dark mb-1">Kotta Pora</h2>
