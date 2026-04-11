@@ -29,15 +29,7 @@ export default function Home() {
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20 bg-[url('/pattern.png')] bg-repeat" />
       
       {/* Header / Music Toggle */}
-      <header className="w-full max-w-md flex justify-end z-10 pt-4">
-        <button 
-          onClick={toggleMusic}
-          className="bg-avurudu-yellow text-avurudu-dark p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
-        >
-          {isPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          <span className="sr-only">Toggle Music</span>
-        </button>
-      </header>
+      
 
       {/* Hero Section */}
       <div className="flex-1 flex flex-col items-center justify-center text-center z-10 w-full max-w-md mt-10">
@@ -67,12 +59,20 @@ export default function Home() {
             Play Traditional Games & Win Exciting Prizes!
           </h3>
           
-          <Link 
-            href="/games"
-            className="block w-full bg-gradient-to-r from-avurudu-orange to-avurudu-red text-white text-xl font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all outline-none focus:ring-4 focus:ring-avurudu-yellow/50"
-          >
-            PLAY NOW
-          </Link>
+          <div className="flex flex-col gap-3">
+            <Link 
+              href="/games"
+              className="block w-full bg-gradient-to-r from-avurudu-orange to-avurudu-red text-white text-xl font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all outline-none focus:ring-4 focus:ring-avurudu-yellow/50"
+            >
+              PLAY NOW
+            </Link>
+            <button
+              onClick={() => window.dispatchEvent(new Event("show-welcome-popup"))}
+              className="block w-full bg-white text-avurudu-red border-2 border-avurudu-red/30 hover:border-avurudu-red hover:bg-avurudu-red/5 text-lg font-bold py-3 px-8 rounded-full shadow-sm hover:shadow transition-all outline-none"
+            >
+              View Rules & Prizes
+            </button>
+          </div>
         </div>
       </div>
 

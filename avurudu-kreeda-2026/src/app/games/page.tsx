@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Lock, Trophy } from "lucide-react";
+import { ChevronLeft, Lock, Trophy, Gift, Medal } from "lucide-react";
 
 function getRank(points: number): string {
   if (points >= 1000) return "Avurudu Champion 🏆";
@@ -37,36 +37,47 @@ export default function GamesHub() {
         <div className="w-10"></div>
       </header>
 
-      {/* Stats/Points Header */}
-      <div className="z-10 bg-white/90 rounded-2xl p-5 shadow-md max-w-sm mx-auto w-full mb-8 border border-avurudu-yellow/50">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-avurudu-orange/15 rounded-full flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-avurudu-orange" />
+      {/* Stats/Points and Quick Actions */}
+      <div className="z-10 flex items-stretch justify-center gap-2 sm:gap-3 max-w-xl mx-auto w-full mb-8 px-2 sm:px-4">
+        
+        {/* Leaderboard Button (Left) */}
+        <Link 
+          href="/leaderboard" 
+          className="flex flex-col items-center justify-center bg-white/90 rounded-2xl px-1 sm:px-2 w-[64px] sm:w-[72px] shadow-sm border border-avurudu-yellow/50 hover:bg-yellow-50 hover:scale-105 transition-all flex-shrink-0"
+        >
+          <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 mb-1 drop-shadow-sm" />
+          <span className="text-[9px] sm:text-[10px] font-black text-avurudu-dark uppercase tracking-wider text-center leading-tight">Ranks</span>
+        </Link>
+
+        {/* Main Points Header */}
+        <div className="bg-white/90 rounded-2xl p-3 sm:p-4 shadow-md flex-1 border border-avurudu-yellow/50 flex flex-col justify-center min-w-[180px]">
+          <div className="flex justify-between items-center whitespace-nowrap">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-avurudu-orange/15 rounded-full flex items-center justify-center flex-shrink-0">
+                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-avurudu-orange" />
+              </div>
+              <div>
+                <p className="text-[9px] sm:text-[10px] text-avurudu-dark/50 font-medium uppercase tracking-wider">Total Points</p>
+                <p className="text-xl sm:text-2xl font-black text-avurudu-orange leading-tight">{totalPoints} <span className="text-xs sm:text-sm font-bold">KP</span></p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-avurudu-dark/50 font-medium uppercase tracking-wider">Total Kreeda Points</p>
-              <p className="text-3xl font-black text-avurudu-orange leading-tight">{totalPoints} <span className="text-base font-bold">KP</span></p>
+            <div className="text-right min-w-[50px] sm:min-w-[70px]">
+              <p className="text-[9px] sm:text-[10px] text-avurudu-dark/50 font-medium uppercase tracking-wider">Rank</p>
+              <p className="text-[11px] sm:text-xs font-bold text-avurudu-red leading-tight whitespace-normal">{getRank(totalPoints)}</p>
             </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-avurudu-dark/50 font-medium uppercase tracking-wider">Rank</p>
-            <p className="text-base font-bold text-avurudu-red">{getRank(totalPoints)}</p>
           </div>
         </div>
+
+        {/* Fill Form / Claim Prize Button (Right) */}
+        <Link 
+          href="/claim-prize" 
+          className="flex flex-col items-center justify-center bg-white/90 rounded-2xl px-1 sm:px-2 w-[64px] sm:w-[72px] shadow-sm border border-avurudu-yellow/50 hover:bg-green-50 hover:scale-105 transition-all flex-shrink-0"
+        >
+          <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 mb-1 drop-shadow-sm" />
+          <span className="text-[9px] sm:text-[10px] font-black text-avurudu-dark uppercase tracking-wider text-center leading-tight">Claim</span>
+        </Link>
       </div>
 
-      {/* Claim Prize Link if they have played */}
-      {totalPoints > 0 && (
-        <div className="z-10 max-w-sm mx-auto w-full mb-8 px-2 animate-pulse">
-          <Link href="/claim-prize" className="block w-full text-center bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-full font-black text-lg shadow-[0_0_20px_rgba(16,185,129,0.5)] border-2 border-white hover:scale-105 transition-transform overflow-hidden relative group">
-            <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black"></span>
-            <span className="relative flex items-center justify-center gap-2 drop-shadow-md">
-              🎁 Claim Your Grand Avurudu Prize!
-            </span>
-          </Link>
-        </div>
-      )}
 
       {/* Games Grid */}
       <div className="z-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full pb-20">
